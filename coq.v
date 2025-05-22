@@ -901,3 +901,38 @@ Proof.
     replace 1 with (1 * 1) by lra.
     apply Rmult_le_compat; try lra.       (* lra uses IH and Hk_ge1 here *)
 Qed.
+
+(* ------------------------------------------------------------- *)
+(*  Unfolding lemma for the cumulative threshold product         *)
+(* ------------------------------------------------------------- *)
+Lemma thresh_prod_S :
+  forall (tower : WeightedTower) (n : nat),
+    thresh_prod tower (S n) =
+      thresh_prod tower n * w_approx_threshold (tower n).
+Proof.
+  intros tower n; simpl; reflexivity.
+Qed.
+
+(* ------------------------------------------------------------- *)
+(*  Lower bound:  the cumulative threshold product is ≥ 1        *)
+(* ------------------------------------------------------------- *)
+Lemma thresh_prod_ge1 :
+  forall (tower : WeightedTower),
+    (forall k, 1 <= w_approx_threshold (tower k)) ->
+    forall n, 1 <= thresh_prod tower n.
+Proof.
+  intros tower Hthr n.
+  induction n as [|k IH].
+  - simpl; lra.
+  - simpl.                              (* thresh_prod (S k) = prod_k · w_k *)
+    (* goal: 1 ≤ prod_k · w_k *)
+    apply Rle_trans with (thresh_prod tower k).   (* 1 ≤ prod_k *)
+    + exact IH.
+    + (* prod_k ≤ prod_k · w_k because w_k ≥ 1 *)
+      rewrite <- Rmult_1_r at 1.                 (* turn LHS into prod_k·1  *)
+      assert (Hprod_nonneg : 0 <= thresh_prod tower k)
+        by (apply Rle_trans with 1; [lra | exact IH]).
+      apply Rmult_le_compat_l.
+      * exact Hprod_nonneg.
+      * apply Hthr.
+Qed.
