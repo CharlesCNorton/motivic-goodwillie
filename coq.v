@@ -936,3 +936,18 @@ Proof.
       * exact Hprod_nonneg.
       * apply Hthr.
 Qed.
+
+Lemma w_total_ratio :
+  forall (X : MotivicSpace) (k : nat),
+    w_total_prod X (S k) / w_total_prod X k = w_total X k.
+Proof.
+  intros X k.
+  unfold Rdiv.
+  rewrite w_total_prod_S.                (* unfold product at S k         *)
+  (*  (P_k * w_total_k) * /P_k  =  w_total_k  provided  P_k ≠ 0           *)
+  rewrite Rmult_comm.
+  rewrite <- Rmult_assoc.
+  rewrite Rinv_l.
+  - rewrite Rmult_1_l. reflexivity.
+  - apply Rgt_not_eq, w_total_prod_pos.  (* P_k > 0 ⇒ P_k ≠ 0              *)
+Qed.
