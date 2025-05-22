@@ -779,3 +779,125 @@ Proof.
   intro n.
   apply lt_0_INR, fact_nat_pos.
 Qed.
+
+Definition weighted_tower_obstruction (tower : WeightedTower) : ObstructionSeq :=
+  fun n =>
+    R_dist (INR (approx_dim_bound (w_approx_poly (tower n))))
+           (INR (approx_dim_bound (w_approx_poly (tower (S n))))) +
+    R_dist (INR (approx_sing_bound (w_approx_poly (tower n))))
+           (INR (approx_sing_bound (w_approx_poly (tower (S n))))).
+
+(* ------------------------------------------------------------------ *)
+(*  Bounding one weighted-tower obstruction layer by the previous one *)
+(* ------------------------------------------------------------------ *)
+Lemma weighted_tower_obstruction_bound :
+  forall (tower : WeightedTower) (X : MotivicSpace),
+    improving_weighted_tower tower ->
+    (forall n, approx_space (w_approx_poly (tower n)) = X) ->
+    (* extra quantitative facts we assume *)
+    (forall n, weighted_tower_obstruction tower (S n)
+               <= weighted_tower_obstruction tower n)  ->   (* monotone ↓ *)
+    (forall n, 1 <= w_approx_threshold (tower n))          -> (* thresh ≥ 1 *)
+    forall n,
+      weighted_tower_obstruction tower (S n)
+        <= weighted_tower_obstruction tower n 
+           * w_approx_threshold (tower n).
+Proof.
+  intros tower X _ _ Hmono Hthr n.
+
+  (* 1.  First shrink by monotonicity (improving sequence). *)
+  apply Rle_trans with (r2 := weighted_tower_obstruction tower n).
+  - apply Hmono.
+
+  (* 2.  Multiply by a factor ≥ 1. *)
+  - set (a := weighted_tower_obstruction tower n).
+    assert (Hpos : 0 <= a).
+    { unfold a, weighted_tower_obstruction;
+      apply Rplus_le_le_0_compat; apply Rabs_pos. }
+
+    (* Rewrite only the left-hand occurrence of [a] as [a·1]. *)
+    rewrite <- (Rmult_1_r a) at 1.
+
+    (* Now apply monotone multiplication:  a·1 ≤ a·w  because w ≥ 1. *)
+    apply Rmult_le_compat_l; [ exact Hpos | apply Hthr ].
+Qed.
+
+(* Cumulative product  Π_{k < n}  of the stage thresholds ------------- *)
+Fixpoint thresh_prod (tower : WeightedTower) (n : nat) : R :=
+  match n with
+  | 0   => 1
+  | S k => thresh_prod tower k * w_approx_threshold (tower k)
+  end.
+
+(* ------------------------------------------------------------------ *)
+(*  Global product bound for the weighted-tower obstruction           *)
+(* ------------------------------------------------------------------ *)
+Lemma weighted_tower_obstruction_prod_bound :
+  forall (tower : WeightedTower) (X : MotivicSpace),
+    improving_weighted_tower tower ->
+    (forall n, approx_space (w_approx_poly (tower n)) = X) ->
+    (* quantitative facts we assume *)
+    (forall n, weighted_tower_obstruction tower (S n)
+               <= weighted_tower_obstruction tower n) ->      (* monotone ↓ *)
+    (forall n, 1 <= w_approx_threshold (tower n)) ->          (* threshold ≥ 1 *)
+    forall n,
+      weighted_tower_obstruction tower n
+        <= weighted_tower_obstruction tower 0%nat
+           * thresh_prod tower n.
+Proof.
+  intros tower X Himp Hspace Hmono Hthr.
+
+  (* step–bound proved earlier *)
+  assert (Hstep :
+            forall k,
+              weighted_tower_obstruction tower (S k)
+                <= weighted_tower_obstruction tower k
+                   * w_approx_threshold (tower k)).
+  { intro k.
+    apply (weighted_tower_obstruction_bound
+             tower X Himp Hspace Hmono Hthr). }
+
+  (* positivity of every threshold: 1 ≤ w  ⇒  0 ≤ w                        *)
+  assert (Hthr_pos : forall k, 0 <= w_approx_threshold (tower k)).
+  { intro k. eapply Rle_trans; [ apply Rle_0_1 | apply Hthr ]. }
+
+  (* main induction on n ------------------------------------------------ *)
+  induction n as [|k IH].
+  - (* n = 0 *)
+    simpl. rewrite Rmult_1_r. right; reflexivity.
+
+  - (* n = S k *)
+    specialize (Hstep k).                        (* one-step bound          *)
+    eapply Rle_trans.                            (* Obs_{k+1} ≤  … ≤  RHS   *)
+    + exact Hstep.
+    + simpl thresh_prod.                         (* RHS ≃ Obs₀ · (prod_k · w_k) *)
+      rewrite <- Rmult_assoc.                    (* put (Obs₀·prod_k) · w_k *)
+      apply Rmult_le_compat_r.
+      * apply Hthr_pos.                          (* 0 ≤ w_k                 *)
+      * exact IH.                                (* IH: Obs_k ≤ Obs₀·prod_k *)
+Qed.
+
+(* ---------- Positivity of the cumulative threshold product --------- *)
+Lemma thresh_prod_pos :
+  forall (tower : WeightedTower) (n : nat),
+    0 < thresh_prod tower n.
+Proof.
+  intros tower n.
+  induction n as [|k IH]; simpl.
+  - lra.                                         (* thresh_prod … 0 = 1 > 0 *)
+  - pose proof (w_approx_threshold_pos (tower k)) as Hk_pos.
+    apply Rmult_lt_0_compat; assumption.         (* IH > 0  ∧  w_k > 0 *)
+Qed.
+
+Lemma thresh_prod_ge_one :
+  forall (tower : WeightedTower),
+    (forall k, 1 <= w_approx_threshold (tower k)) ->
+    forall n, 1 <= thresh_prod tower n.
+Proof.
+  intros tower Hthr n.
+  induction n as [|k IH]; simpl.
+  - lra.                                  (* base case: thresh_prod … 0 = 1 *)
+  - pose proof (Hthr k) as Hk_ge1.        (* 1 ≤ w_k                      *)
+    replace 1 with (1 * 1) by lra.
+    apply Rmult_le_compat; try lra.       (* lra uses IH and Hk_ge1 here *)
+Qed.
