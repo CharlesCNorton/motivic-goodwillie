@@ -4,9 +4,9 @@
 (*                                                                             *)
 (*       A Formalization of Weight-Based Stabilization for Motivic Functors   *)
 (*                                                                             *)
-(*   "The sea advances insensibly in silence, nothing seems to happen,         *)
-(*    nothing moves... yet it finally surrounds the resistant substance."      *)
-(*                                               — Alexander Grothendieck      *)
+(*   The sea advances insensibly in silence, nothing seems to happen,          *)
+(*   nothing moves, yet it finally surrounds the resistant substance.          *)
+(*                                               -- Alexander Grothendieck     *)
 (*                                                                             *)
 (*   Author:  Charles Norton                                                   *)
 (*   Date:    November 20, 2024                                                *)
@@ -125,6 +125,19 @@ Proof.
   - exact IHn.
 Defined.
 
+Lemma nat_lt_trans : forall m n p, nat_lt m n -> nat_lt n p -> nat_lt m p.
+Proof.
+  intro m. induction m as [|m' IHm].
+  - intros n p _ Hnp. destruct p.
+    + destruct n; exact Hnp.
+    + exact tt.
+  - intros n p Hmn Hnp. destruct p.
+    + destruct n; exact Hnp.
+    + destruct n.
+      * destruct Hmn.
+      * exact (IHm n p Hmn Hnp).
+Defined.
+
 Lemma nat_add_zero_r : forall n, nat_add n O = n.
 Proof.
   induction n.
@@ -151,6 +164,93 @@ Proof.
   induction n.
   - reflexivity.
   - simpl. exact (ap S IHn).
+Defined.
+
+Lemma nat_add_comm : forall n m, nat_add n m = nat_add m n.
+Proof.
+  induction n.
+  - intro m. simpl. exact (nat_add_zero_r m)^.
+  - intro m. simpl. rewrite IHn. exact (nat_add_succ_r m n)^.
+Defined.
+
+Lemma nat_add_assoc : forall a b c, nat_add a (nat_add b c) = nat_add (nat_add a b) c.
+Proof.
+  induction a.
+  - reflexivity.
+  - intros b c. simpl. exact (ap S (IHa b c)).
+Defined.
+
+Lemma nat_add_swap_middle : forall a b c, nat_add a (nat_add b c) = nat_add b (nat_add a c).
+Proof.
+  intros a b c.
+  rewrite nat_add_assoc.
+  rewrite (nat_add_comm a b).
+  rewrite <- nat_add_assoc.
+  reflexivity.
+Defined.
+
+Lemma nat_mul_succ_r : forall n m, nat_mul n (S m) = nat_add n (nat_mul n m).
+Proof.
+  induction n.
+  - reflexivity.
+  - intro m. simpl. rewrite IHn. apply (ap S).
+    exact (nat_add_swap_middle m n (nat_mul n m)).
+Defined.
+
+Lemma nat_mul_comm : forall n m, nat_mul n m = nat_mul m n.
+Proof.
+  induction n.
+  - intro m. simpl. exact (nat_mul_zero_r m)^.
+  - intro m. simpl. rewrite IHn. exact (nat_mul_succ_r m n)^.
+Defined.
+
+Lemma nat_add_mul_distr_r : forall a b c, nat_mul (nat_add a b) c = nat_add (nat_mul a c) (nat_mul b c).
+Proof.
+  induction a.
+  - reflexivity.
+  - intros b c. simpl. rewrite IHa. exact (nat_add_assoc c (nat_mul a c) (nat_mul b c)).
+Defined.
+
+Lemma nat_mul_assoc : forall a b c, nat_mul (nat_mul a b) c = nat_mul a (nat_mul b c).
+Proof.
+  induction a.
+  - reflexivity.
+  - intros b c. simpl. rewrite nat_add_mul_distr_r. rewrite IHa. reflexivity.
+Defined.
+
+Lemma nat_lt_add_r : forall a b c, nat_lt a b -> nat_lt (nat_add a c) (nat_add b c).
+Proof.
+  intros a b c. revert a b. induction c.
+  - intros a b. rewrite nat_add_zero_r. rewrite nat_add_zero_r. exact idmap.
+  - intros a b H. rewrite nat_add_succ_r. rewrite nat_add_succ_r. exact (IHc a b H).
+Defined.
+
+Lemma nat_lt_add_l : forall a b c, nat_lt b c -> nat_lt (nat_add a b) (nat_add a c).
+Proof.
+  intros a b c H.
+  rewrite (nat_add_comm a b). rewrite (nat_add_comm a c).
+  exact (nat_lt_add_r b c a H).
+Defined.
+
+Lemma nat_lt_add_both : forall a b c d, nat_lt a b -> nat_lt c d -> nat_lt (nat_add a c) (nat_add b d).
+Proof.
+  intros a b c d Hab Hcd.
+  apply nat_lt_trans with (n := nat_add b c).
+  - exact (nat_lt_add_r a b c Hab).
+  - exact (nat_lt_add_l b c d Hcd).
+Defined.
+
+Lemma nat_lt_mul_pos_r : forall a b c, nat_lt a b -> nat_lt O c -> nat_lt (nat_mul a c) (nat_mul b c).
+Proof.
+  intros a b c Hab Hc. destruct c.
+  - destruct Hc.
+  - clear Hc. revert a b Hab. induction c.
+    + intros a b Hab. rewrite nat_mul_one_r. rewrite nat_mul_one_r. exact Hab.
+    + intros a b Hab.
+      rewrite (nat_mul_succ_r a (S c)). rewrite (nat_mul_succ_r b (S c)).
+      apply nat_lt_add_both.
+      * exact Hab.
+      * exact (IHc a b Hab).
 Defined.
 
 (* ================================================================= *)
@@ -372,14 +472,50 @@ Proof.
   exact (w_stage_antitonicity n).
 Defined.
 
-Lemma nat_lt_trans : forall m n p, nat_lt m n -> nat_lt n p -> nat_lt m p.
+Lemma nat_lt_add_cancel_l : forall a b c, nat_lt (nat_add c a) (nat_add c b) -> nat_lt a b.
 Proof.
-Admitted.
+  intros a b c. revert a b. induction c.
+  - intros a b H. exact H.
+  - intros a b H. simpl in H. exact (IHc a b H).
+Defined.
+
+Lemma nat_lt_mul_cancel_r : forall a b c, nat_lt O c -> nat_lt (nat_mul a c) (nat_mul b c) -> nat_lt a b.
+Proof.
+  intros a. induction a.
+  - intros b c Hc Hab. destruct b.
+    + destruct c; [destruct Hc | destruct Hab].
+    + exact tt.
+  - intros b c Hc Hab. destruct b.
+    + destruct c; [destruct Hc |]. simpl in Hab. destruct Hab.
+    + simpl. apply IHa with (c := c).
+      * exact Hc.
+      * destruct c; [destruct Hc |]. simpl in Hab.
+        exact (nat_lt_add_cancel_l (nat_mul a (S c)) (nat_mul b (S c)) c Hab).
+Defined.
+
+Lemma nat_mul_rearrange_1 : forall a b c, nat_mul (nat_mul a b) c = nat_mul (nat_mul a c) b.
+Proof.
+  intros. rewrite nat_mul_assoc. rewrite (nat_mul_comm b c). rewrite <- nat_mul_assoc. reflexivity.
+Defined.
 
 Lemma qpos_lt_trans : forall q1 q2 q3,
   qpos_lt q1 q2 -> qpos_lt q2 q3 -> qpos_lt q1 q3.
 Proof.
-Admitted.
+  intros q1 q2 q3 H12 H23.
+  unfold qpos_lt in *.
+  apply nat_lt_mul_cancel_r with (c := qpos_denom q2).
+  - unfold qpos_denom. exact tt.
+  - apply nat_lt_trans with (n := nat_mul (nat_mul (qpos_num q2) (qpos_denom q1)) (qpos_denom q3)).
+    + apply (transport (fun x => nat_lt x _) (nat_mul_rearrange_1 (qpos_num q1) (qpos_denom q3) (qpos_denom q2))^).
+      apply nat_lt_mul_pos_r.
+      * exact H12.
+      * unfold qpos_denom. exact tt.
+    + apply (transport (fun x => nat_lt x _) (nat_mul_rearrange_1 (qpos_num q2) (qpos_denom q3) (qpos_denom q1))).
+      apply (transport (fun x => nat_lt _ x) (nat_mul_rearrange_1 (qpos_num q3) (qpos_denom q2) (qpos_denom q1))).
+      apply nat_lt_mul_pos_r.
+      * exact H23.
+      * unfold qpos_denom. exact tt.
+Defined.
 
 (** Main Theorem: Weighted Taylor Tower Convergence
     A proper weighted tower with bounded obstructions converges. *)
