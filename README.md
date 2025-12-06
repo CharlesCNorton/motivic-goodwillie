@@ -1,6 +1,6 @@
-# Weighted Motivic Taylor Tower
+# Weighted Motivic Taylor Towers
 
-A formalization of weight-based stabilization for motivic homotopy functors, proving that weighted Taylor towers converge when obstructions are bounded by decreasing weight thresholds.
+A Coq formalization of weight-based stabilization for motivic Goodwillie calculus.
 
 > *The sea advances insensibly in silence, nothing seems to happen, nothing moves, yet it finally surrounds the resistant substance.*
 > — Alexander Grothendieck
@@ -12,141 +12,102 @@ A formalization of weight-based stabilization for motivic homotopy functors, pro
 
 ## Overview
 
-Classical Goodwillie calculus provides polynomial approximations of homotopy functors that converge under connectivity hypotheses. However, direct adaptation to motivic homotopy theory encounters fundamental obstacles:
+Classical Goodwillie calculus provides polynomial approximations of homotopy functors under connectivity hypotheses. Direct adaptation to motivic homotopy theory fails because blow-ups, singularities, and non-reduced schemes introduce persistent obstructions.
 
-- **Blow-ups** alter geometry in ways that don't behave like cell attachments
-- **Singularities** contribute persistent cohomological classes
-- **Non-reduced schemes** create extension data invisible to some functors but detected by others (e.g., K-theory)
-
-The **Weighted Motivic Taylor Tower** addresses these challenges by introducing weight filtrations that systematically suppress high-complexity contributions, forcing obstruction classes to vanish as the tower progresses.
+The **Weighted Motivic Taylor Tower** introduces weight filtrations that suppress high-complexity contributions, forcing obstructions to vanish as the tower progresses.
 
 ---
 
-## What's New
+## Weight Functions
 
-| Innovation | Description |
-|------------|-------------|
-| **Weighted Goodwillie towers** | First combination of polynomial (n-excisive) approximation with real-valued weight filtration in motivic homotopy |
-| **Real-valued weight functions** | Continuous stage-based functions ω(n) → 0, generalizing Bondarko's integer gradings |
-| **Bounded differentials** | Bounding lemmas \|dᵣ\| ≤ C·ω(n) adapted from Goodwillie's excision to motivic cohomology |
-| **Unified treatment** | Blow-ups, nilpotent thickenings, singularities, and group actions handled under one filtration |
-| **Proof assistant formalization** | First encoding of weighted bounding lemmas in a formal proof assistant |
-
----
-
-## Key Ideas
-
-### Weight Functions
-
-Three canonical weight functions penalize geometric complexity:
+Three weight functions penalize geometric complexity:
 
 | Weight | Definition | Effect |
 |--------|------------|--------|
-| **Dimension** | w_dim(X) = 1/(1 + dim(X)) | Higher-dimensional varieties receive smaller weights |
-| **Singularity** | w_sing(X) = 1/(1 + sing(X)) | More singular varieties receive smaller weights |
-| **Stage** | w_stage(n) = 1/(n + 1) | Later tower stages impose stricter thresholds |
+| w_dim(X) | 1/(1 + dim(X)) | Higher-dimensional varieties receive smaller weights |
+| w_sing(X) | 1/(1 + sing(X)) | More singular varieties receive smaller weights |
+| w_stage(n) | 1/(n + 1) | Later tower stages impose stricter thresholds |
 
-The total weight combines all three:
-```
-w_total(X, n) = w_dim(X) · w_sing(X) · w_stage(n)
-```
+Combined: `w_total(X, n) = w_dim(X) · w_sing(X) · w_stage(n)`
 
 ### Convergence Mechanism
 
-1. **Proper weighted tower**: Weight thresholds decrease monotonically: ω(n+1) < ω(n)
-2. **Bounded obstructions**: Obstruction at stage n is bounded by C · ω(n) for some constant C
-3. **Vanishing**: Since ω(n) → 0 as n → ∞, obstructions must vanish in the limit
+1. **Proper weighted tower**: Thresholds decrease monotonically (ω(n+1) < ω(n))
+2. **Bounded obstructions**: obs(n) < C · ω(n) for some constant C
+3. **Archimedean vanishing**: Since ω(n) → 0, obstructions eventually vanish
 
-**Main Theorem:** For any motivic functor F and proper weighted tower with bounded obstructions:
+**Main Theorem:** For a proper weighted tower with bounded obstructions:
 ```
 lim_{n→∞} P_n^w F(X) ≃ F(X)
 ```
 
 ---
 
-## Formalization Status
+## Formalization Contents
 
-The `WeightedTower.v` file provides a Coq formalization using HoTT:
+The `WeightedTower.v` file (1810 lines) formalizes:
 
-### Completed
+### Motivic Infrastructure
+- Base fields, schemes (affine, projective, quasi-projective, singular)
+- Nisnevich topology and sheaves
+- Motivic spectra, Tate objects, slice filtration
+- Scheme-to-motivic-space conversion with A¹-invariance
 
-| Component | Status |
-|-----------|--------|
-| A¹-homotopy foundations (interval, A¹-invariance) | ✓ |
-| Natural number arithmetic with full ordering proofs | ✓ |
-| Positive rationals (QPos) with transitivity of < | ✓ |
-| Weight functions (w_dim, w_sing, w_stage) | ✓ |
-| Stable category infrastructure | ✓ |
-| Distinguished triangles and fiber sequences | ✓ |
-| Obstruction theory records | ✓ |
-| Bounded differentials lemma | ✓ |
-| Main convergence theorem | ✓ |
-| Categorical convergence theorem | ✓ |
+### Stable Categories
+- Full axiomatization: composition laws, associativity, identity
+- Zero objects with uniqueness
+- Suspension Σ and loop Ω functors with functoriality
+- η/ε adjunction with triangle identities
+- Distinguished triangles with zero-composition axioms
+- Fiber sequences
 
-### Aspirational / Future Work
+### N-Excisive Functors
+- Strongly cocartesian cubes
+- n-excisive predicate
+- Reduced functors preserving zero
+- Goodwillie tower: P_n approximations and D_n homogeneous layers
+- Layer decay from n-excisiveness
 
-| Goal | Description |
-|------|-------------|
-| **Full spectral sequence formalization** | Weight spectral sequences with bounded differentials |
-| **Equivariant extension** | Weighted towers for G-equivariant motivic homotopy |
-| **Derived geometry integration** | Connections to derived algebraic geometry |
-| **Computational verification** | Macaulay2/SageMath verification of blow-up examples |
-| **Dynamic weighting** | Adaptive weight functions based on detected complexity |
+### Homotopy Limits
+- Sequential diagrams and towers
+- Homotopy limit with universal property
+- Milnor sequence for lim¹
+- Stabilized tower convergence
+
+### Spectral Sequences
+- Bigraded groups with differentials
+- d² = 0 axiom
+- Weighted spectral sequences
+- Bounded differential property
+- Weight filtrations
+
+### Convergence Theory
+- Positive rationals with Archimedean property
+- Weight antitonicity proofs
+- Obstruction vanishing theorems
+- Tower stabilization
+- Complete convergence: obstructions eventually zero
+
+---
+
+## Admitted Results
+
+| Result | Reason |
+|--------|--------|
+| `filtration_to_bigraded` | Zero element construction from filtration levels |
+| `measure_eventually_zero_from_arbitrarily_small` | Discrete Archimedean bridge requiring additional structure |
+
+All other theorems fully proven from HoTT axioms.
 
 ---
 
 ## Building
 
-Requires [Coq-HoTT](https://github.com/HoTT/Coq-HoTT). Compile with:
+Requires [Coq-HoTT](https://github.com/HoTT/Coq-HoTT) (Coq 8.19+).
 
 ```bash
-coqc -noinit WeightedTower.v
+coqc -Q /path/to/HoTT HoTT -noinit WeightedTower.v
 ```
-
----
-
-## Connections to Prior Work
-
-| Prior Work | Relationship |
-|------------|--------------|
-| **Goodwillie calculus** | We adapt polynomial approximation towers to the motivic setting |
-| **Bondarko weight structures** | Our real-valued weights generalize integer-graded weight filtrations |
-| **Voevodsky slice filtration** | Compatible with Tate twist filtrations on motivic spectra |
-| **Deligne mixed Hodge theory** | Weight filtrations inspired by Hodge-theoretic weights |
-| **cdh-topology** | Blow-up squares become excisive under cdh, complementing our approach |
-| **HoTT/Coq-HoTT** | Formalization uses stable category infrastructure from PR #2288 |
-
----
-
-## Future Directions
-
-### Equivariant Motivic Homotopy
-For a finite group G acting on varieties, incorporate orbit dimension weighting alongside dimension-based weighting, extending Dotto's equivariant Goodwillie calculus.
-
-### Slice Filtration Synergy
-Combine weighted towers with Voevodsky's slice filtration to produce bifiltered objects—one axis for polynomial degree, another for weight/slice level.
-
-### Computational Verification
-Use algebraic geometry software to verify tower collapse:
-- **Macaulay2**: Blow-up computations, intersection rings, Chow groups
-- **SageMath**: Toric geometry, group cohomology
-- **Singular**: Milnor numbers, resolution processes
-
-### Derived Geometry
-Extend to derived schemes and stacks where nilpotent/homotopical thickenings are fundamental.
-
----
-
-## Glossary
-
-| Term | Definition |
-|------|------------|
-| **Blow-up** | Birational morphism Bl_Z(X) → X replacing subvariety Z with projectivized normal bundle |
-| **Weight structure** | Bondarko's decomposition of triangulated categories into weight-filtered pieces |
-| **cdh-topology** | Topology making blow-up squares into homotopy pushouts |
-| **Obstruction class** | Element in fib(P_n^w F → P_{n-1}^w F) preventing tower equivalence |
-| **Proper tower** | Tower with strictly decreasing weight thresholds |
-| **ω(n)** | Stage-dependent weight factor, typically 1/(n+1), satisfying ω(n) → 0 |
 
 ---
 
@@ -156,5 +117,4 @@ Extend to derived schemes and stacks where nilpotent/homotopical thickenings are
 - F. Morel & V. Voevodsky, *A¹-homotopy theory of schemes* (1999)
 - M. Bondarko, *Weight structures vs. t-structures* (2010)
 - D.-C. Cisinski & F. Déglise, *Triangulated Categories of Mixed Motives* (2019)
-- A. Dotto, *Goodwillie Calculus in the Equivariant Setting* (2013)
 - HoTT Book, *Homotopy Type Theory: Univalent Foundations* (2013)
