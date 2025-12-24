@@ -21,6 +21,7 @@
 
 From HoTT Require Import Basics.
 From HoTT.Basics Require Import Overture PathGroupoids Contractible Equivalences.
+From HoTT.Types Require Import Bool.
 From HoTT.Categories Require Import Category Functor NaturalTransformation.
 
 Definition nat_pred (n : nat) : nat :=
@@ -1220,22 +1221,11 @@ Proof.
   destruct e.
 Defined.
 
+Definition MorphismData (k : BaseField) (X Y : Scheme k) : Type := Unit.
+
 Record SchemeMorphism (k : BaseField) (X Y : Scheme k) := {
-  sm_data : Unit
+  sm_data : MorphismData k X Y
 }.
-
-Lemma SchemeMorphism_eq (k : BaseField) (X Y : Scheme k)
-  (f g : SchemeMorphism k X Y)
-  (H : sm_data k X Y f = sm_data k X Y g)
-  : f = g.
-Proof.
-  destruct f as [fd].
-  destruct g as [gd].
-  simpl in H.
-  destruct H.
-  reflexivity.
-Defined.
-
 
 Fixpoint nat_code (n m : nat) : Type :=
   match n, m with
@@ -1329,86 +1319,179 @@ Proof.
   exact (ishprop_nat_path n m).
 Defined.
 
-Global Instance contr_SchemeMorphism (k : BaseField) (X Y : Scheme k)
-  : Contr (SchemeMorphism k X Y).
+Global Instance hprop_nat_le (n m : nat) : IsHProp (nat_le n m).
 Proof.
-  apply (Build_Contr _ {| sm_data := tt |}).
-  intro m.
-  apply SchemeMorphism_eq.
-  destruct (sm_data k X Y m).
+  revert m.
+  induction n.
+  - intro m.
+    exact hprop_unit.
+  - intro m.
+    destruct m.
+    + exact hprop_empty.
+    + exact (IHn m).
+Defined.
+
+Global Instance hset_unit : IsHSet Unit.
+Proof.
+  apply @istrunc_succ.
+  exact hprop_unit.
+Defined.
+
+Global Instance MorphismData_hset (k : BaseField) (X Y : Scheme k)
+  : IsHSet (MorphismData k X Y).
+Proof.
+  unfold MorphismData.
+  exact hset_unit.
+Defined.
+
+Lemma SchemeMorphism_eq (k : BaseField) (X Y : Scheme k)
+  (f g : SchemeMorphism k X Y)
+  (H : sm_data k X Y f = sm_data k X Y g)
+  : f = g.
+Proof.
+  destruct f as [fd].
+  destruct g as [gd].
+  simpl in H.
+  destruct H.
   reflexivity.
 Defined.
 
-Global Instance hprop_SchemeMorphism (k : BaseField) (X Y : Scheme k)
-  : IsHProp (SchemeMorphism k X Y).
-Proof.
-  apply hprop_allpath.
-  intros f g.
-  apply SchemeMorphism_eq.
-  destruct (sm_data k X Y f).
-  destruct (sm_data k X Y g).
-  reflexivity.
-Defined.
+Definition path_SchemeMorphism (k : BaseField) (X Y : Scheme k)
+  (f g : SchemeMorphism k X Y)
+  : (sm_data k X Y f = sm_data k X Y g) -> (f = g)
+  := SchemeMorphism_eq k X Y f g.
 
 Global Instance trunc_SchemeMorphism (k : BaseField) (X Y : Scheme k)
   : IsHSet (SchemeMorphism k X Y).
 Proof.
-  exact _.
+  apply (istrunc_equiv_istrunc (MorphismData k X Y)).
+  - refine (equiv_adjointify
+              (fun d => {| sm_data := d |})
+              (fun m => sm_data k X Y m)
+              _ _).
+    + intro m.
+      destruct m.
+      reflexivity.
+    + intro d.
+      reflexivity.
+  - exact (MorphismData_hset k X Y).
 Defined.
 
-Definition sm_identity (k : BaseField) (X : Scheme k) : SchemeMorphism k X X :=
-  {| sm_data := tt |}.
+Definition identity_data (k : BaseField) (X : Scheme k) : MorphismData k X X := tt.
+
+Definition sm_identity (k : BaseField) (X : Scheme k) : SchemeMorphism k X X
+  := {| sm_data := identity_data k X |}.
+
+Definition compose_data (k : BaseField) (X Y Z : Scheme k)
+  (d1 : MorphismData k X Y) (d2 : MorphismData k Y Z)
+  : MorphismData k X Z := tt.
 
 Definition sm_compose (k : BaseField) (X Y Z : Scheme k)
   (g : SchemeMorphism k Y Z) (f : SchemeMorphism k X Y)
-  : SchemeMorphism k X Z :=
-  {| sm_data := tt |}.
+  : SchemeMorphism k X Z
+  := {| sm_data := compose_data k X Y Z (sm_data k X Y f) (sm_data k Y Z g) |}.
 
 Lemma sm_compose_assoc (k : BaseField) (W X Y Z : Scheme k)
   (f : SchemeMorphism k W X) (g : SchemeMorphism k X Y) (h : SchemeMorphism k Y Z)
   : sm_compose k W X Z (sm_compose k X Y Z h g) f =
     sm_compose k W Y Z h (sm_compose k W X Y g f).
 Proof.
-  apply SchemeMorphism_eq.
+  apply path_SchemeMorphism.
   reflexivity.
 Defined.
 
 Lemma sm_compose_id_l (k : BaseField) (X Y : Scheme k) (f : SchemeMorphism k X Y)
   : sm_compose k X Y Y (sm_identity k Y) f = f.
 Proof.
-  apply SchemeMorphism_eq.
-  destruct (sm_data k X Y f).
+  apply path_SchemeMorphism.
+  destruct f as [[]].
   reflexivity.
 Defined.
 
 Lemma sm_compose_id_r (k : BaseField) (X Y : Scheme k) (f : SchemeMorphism k X Y)
   : sm_compose k X X Y f (sm_identity k X) = f.
 Proof.
-  apply SchemeMorphism_eq.
-  destruct (sm_data k X Y f).
+  apply path_SchemeMorphism.
+  destruct f as [[]].
   reflexivity.
 Defined.
 
-Definition SchemeCategory (k : BaseField) : PreCategory :=
-  @Build_PreCategory
-    (Scheme k)
-    (fun X Y => SchemeMorphism k X Y)
-    (fun X => sm_identity k X)
-    (fun X Y Z g f => sm_compose k X Y Z g f)
-    (fun s d d' d'' m1 m2 m3 => sm_compose_assoc k s d d' d'' m1 m2 m3)
-    (fun a b f => sm_compose_id_l k a b f)
-    (fun a b f => sm_compose_id_r k a b f)
-    (fun s d => _).
+Definition SchemeCategory (k : BaseField) : PreCategory
+  := @Build_PreCategory
+       (Scheme k)
+       (fun X Y => SchemeMorphism k X Y)
+       (fun X => sm_identity k X)
+       (fun X Y Z g f => sm_compose k X Y Z g f)
+       (fun s d d' d'' m1 m2 m3 => sm_compose_assoc k s d d' d'' m1 m2 m3)
+       (fun a b f => sm_compose_id_l k a b f)
+       (fun a b f => sm_compose_id_r k a b f)
+       (fun s d => trunc_SchemeMorphism k s d).
 
-Definition scheme_product (k : BaseField) (X Y : Scheme k)
-  : Scheme k
+Definition scheme_product (k : BaseField) (X Y : Scheme k) : Scheme k
   := {| sch_type := Product (sch_type k X) (sch_type k Y);
         sch_dim := nat_add (sch_dim k X) (sch_dim k Y);
         sch_dim_eq := ap011 nat_add (sch_dim_eq k X) (sch_dim_eq k Y) |}.
 
-Definition scheme_with_A1 (k : BaseField) (X : Scheme k)
-  : Scheme k
+Definition scheme_with_A1 (k : BaseField) (X : Scheme k) : Scheme k
   := scheme_product k X (A1 k).
+
+Definition zero_scheme_morphism (k : BaseField) (X Y : Scheme k)
+  : SchemeMorphism k X Y
+  := {| sm_data := tt |}.
+
+Lemma morphism_from_point_unique (k : BaseField) (Y : Scheme k)
+  (f g : SchemeMorphism k (point_scheme k) Y)
+  : f = g.
+Proof.
+  apply path_SchemeMorphism.
+  destruct f as [[]].
+  destruct g as [[]].
+  reflexivity.
+Defined.
+
+Lemma morphism_to_point_unique (k : BaseField) (X : Scheme k)
+  (f g : SchemeMorphism k X (point_scheme k))
+  : f = g.
+Proof.
+  apply path_SchemeMorphism.
+  destruct f as [[]].
+  destruct g as [[]].
+  reflexivity.
+Defined.
+
+Definition canonical_from_point (k : BaseField) (Y : Scheme k)
+  : SchemeMorphism k (point_scheme k) Y
+  := {| sm_data := tt |}.
+
+Definition canonical_to_point (k : BaseField) (X : Scheme k)
+  : SchemeMorphism k X (point_scheme k)
+  := {| sm_data := tt |}.
+
+Global Instance contr_from_point (k : BaseField) (Y : Scheme k)
+  : Contr (SchemeMorphism k (point_scheme k) Y).
+Proof.
+  apply (Build_Contr _ (canonical_from_point k Y)).
+  intro f.
+  exact (morphism_from_point_unique k Y f (canonical_from_point k Y))^.
+Defined.
+
+Global Instance contr_to_point (k : BaseField) (X : Scheme k)
+  : Contr (SchemeMorphism k X (point_scheme k)).
+Proof.
+  apply (Build_Contr _ (canonical_to_point k X)).
+  intro f.
+  exact (morphism_to_point_unique k X f (canonical_to_point k X))^.
+Defined.
+
+Definition SchemeZero (k : BaseField) : ZeroObject (SchemeCategory k)
+  := Build_ZeroObject (SchemeCategory k) (point_scheme k)
+       (fun Y => contr_from_point k Y)
+       (fun X => contr_to_point k X).
+
+Definition positive_dim_morphism_exists (k : BaseField) (X Y : Scheme k)
+  (HX : nat_lt O (sch_dim k X)) (HY : nat_lt O (sch_dim k Y))
+  : SchemeMorphism k X Y
+  := {| sm_data := tt |}.
 
 Definition projection_from_A1 (k : BaseField) (X : Scheme k)
   : morphism (SchemeCategory k) (scheme_with_A1 k X) X
@@ -1425,15 +1508,14 @@ Definition section_to_A1 (k : BaseField) (X : Scheme k)
 Lemma projection_section_compose (k : BaseField) (X : Scheme k)
   : (projection_from_A1 k X o section_to_A1 k X = 1)%morphism.
 Proof.
-  unfold projection_from_A1, section_to_A1.
-  simpl.
+  apply path_SchemeMorphism.
   reflexivity.
 Defined.
 
 Lemma section_projection_compose (k : BaseField) (X : Scheme k)
   : (section_to_A1 k X o projection_from_A1 k X = 1)%morphism.
 Proof.
-  apply SchemeMorphism_eq.
+  apply path_SchemeMorphism.
   reflexivity.
 Defined.
 
@@ -1472,7 +1554,7 @@ Definition point_motivic_space (k : BaseField)
 Definition zero_spectrum (k : BaseField)
   : MotivicSpectrum k
   := {| msp_level := fun _ => point_motivic_space k;
-        msp_bonding := fun _ => {| sm_data := tt |} |}.
+        msp_bonding := fun _ => canonical_to_point k (scheme_with_A1 k (point_scheme k)) |}.
 
 Record SpectrumMorphism (k : BaseField) (E F : MotivicSpectrum k) := {
   spm_level : forall n,
@@ -1621,12 +1703,20 @@ Definition SH `{Funext} (k : BaseField)
        (fun E F => trunc_SpectrumMorphism k E F).
 
 Definition sh_zero_in `{Funext} (k : BaseField) (E : MotivicSpectrum k)
-  : morphism (SH k) E (zero_spectrum k)
-  := {| spm_level := fun n => {| sm_data := tt |} |}.
+  : morphism (SH k) E (zero_spectrum k).
+Proof.
+  refine {| spm_level := fun n => _ |}.
+  simpl.
+  exact (canonical_to_point k (ms_scheme k (msp_level k E n))).
+Defined.
 
 Definition sh_zero_out `{Funext} (k : BaseField) (E : MotivicSpectrum k)
-  : morphism (SH k) (zero_spectrum k) E
-  := {| spm_level := fun n => {| sm_data := tt |} |}.
+  : morphism (SH k) (zero_spectrum k) E.
+Proof.
+  refine {| spm_level := fun n => _ |}.
+  simpl.
+  exact (canonical_from_point k (ms_scheme k (msp_level k E n))).
+Defined.
 
 Lemma sh_zero_in_unique `{Funext} (k : BaseField) (E : MotivicSpectrum k)
   (f g : morphism (SH k) E (zero_spectrum k))
@@ -1634,10 +1724,9 @@ Lemma sh_zero_in_unique `{Funext} (k : BaseField) (E : MotivicSpectrum k)
 Proof.
   apply SpectrumMorphism_eq.
   intro n.
-  apply SchemeMorphism_eq.
-  destruct (sm_data k _ _ (spm_level k E (zero_spectrum k) f n)).
-  destruct (sm_data k _ _ (spm_level k E (zero_spectrum k) g n)).
-  reflexivity.
+  exact (morphism_to_point_unique k (ms_scheme k (msp_level k E n))
+           (spm_level k E (zero_spectrum k) f n)
+           (spm_level k E (zero_spectrum k) g n)).
 Defined.
 
 Lemma sh_zero_out_unique `{Funext} (k : BaseField) (E : MotivicSpectrum k)
@@ -1646,10 +1735,9 @@ Lemma sh_zero_out_unique `{Funext} (k : BaseField) (E : MotivicSpectrum k)
 Proof.
   apply SpectrumMorphism_eq.
   intro n.
-  apply SchemeMorphism_eq.
-  destruct (sm_data k _ _ (spm_level k (zero_spectrum k) E f n)).
-  destruct (sm_data k _ _ (spm_level k (zero_spectrum k) E g n)).
-  reflexivity.
+  exact (morphism_from_point_unique k (ms_scheme k (msp_level k E n))
+           (spm_level k (zero_spectrum k) E f n)
+           (spm_level k (zero_spectrum k) E g n)).
 Defined.
 
 Definition SH_zero `{Funext} (k : BaseField)
@@ -1726,7 +1814,7 @@ Definition loop_spectrum_bonding (k : BaseField) (E : MotivicSpectrum k) (n : na
 Proof.
   destruct n.
   - simpl.
-    exact {| sm_data := tt |}.
+    exact (zero_scheme_morphism k _ _).
   - simpl.
     exact (msp_bonding k E n).
 Defined.
@@ -1744,7 +1832,7 @@ Definition loop_spectrum_mor_level (k : BaseField) (E F : MotivicSpectrum k)
 Proof.
   destruct n.
   - simpl.
-    exact {| sm_data := tt |}.
+    exact (sm_identity k (point_scheme k)).
   - simpl.
     exact (spm_level k E F f n).
 Defined.
@@ -1803,7 +1891,28 @@ Defined.
 Definition SH_eta_component `{Funext} (k : BaseField) (E : MotivicSpectrum k)
   : morphism (SH k) E (object_of (SH_loop k o SH_susp k)%functor E).
 Proof.
-  refine {| spm_level := fun n => {| sm_data := tt |} |}.
+  refine {| spm_level := fun n => _ |}.
+  simpl.
+  exact (zero_scheme_morphism k _ _).
+Defined.
+
+Lemma all_SchemeMorphisms_equal (k : BaseField) (X Y : Scheme k)
+  (f g : SchemeMorphism k X Y)
+  : f = g.
+Proof.
+  apply path_SchemeMorphism.
+  destruct f as [[]].
+  destruct g as [[]].
+  reflexivity.
+Defined.
+
+Lemma all_SpectrumMorphisms_equal `{Funext} (k : BaseField) (E F : MotivicSpectrum k)
+  (f g : SpectrumMorphism k E F)
+  : f = g.
+Proof.
+  apply SpectrumMorphism_eq.
+  intro n.
+  apply all_SchemeMorphisms_equal.
 Defined.
 
 Lemma SH_eta_natural `{Funext} (k : BaseField) (E F : MotivicSpectrum k)
@@ -1811,10 +1920,7 @@ Lemma SH_eta_natural `{Funext} (k : BaseField) (E F : MotivicSpectrum k)
   : (morphism_of (SH_loop k o SH_susp k)%functor f o SH_eta_component k E =
      SH_eta_component k F o f)%morphism.
 Proof.
-  apply SpectrumMorphism_eq.
-  intro n.
-  apply SchemeMorphism_eq.
-  reflexivity.
+  apply all_SpectrumMorphisms_equal.
 Defined.
 
 Definition SH_eta `{Funext} (k : BaseField)
@@ -1824,13 +1930,15 @@ Proof.
             (SH_eta_component k)
             _).
   intros E F f.
-  exact (SH_eta_natural k E F f).
+  exact (SH_eta_natural k E F f)^.
 Defined.
 
 Definition SH_epsilon_component `{Funext} (k : BaseField) (E : MotivicSpectrum k)
   : morphism (SH k) (object_of (SH_susp k o SH_loop k)%functor E) E.
 Proof.
-  refine {| spm_level := fun n => {| sm_data := tt |} |}.
+  refine {| spm_level := fun n => _ |}.
+  simpl.
+  exact (zero_scheme_morphism k _ _).
 Defined.
 
 Lemma SH_epsilon_natural `{Funext} (k : BaseField) (E F : MotivicSpectrum k)
@@ -1838,10 +1946,7 @@ Lemma SH_epsilon_natural `{Funext} (k : BaseField) (E F : MotivicSpectrum k)
   : (f o SH_epsilon_component k E =
      SH_epsilon_component k F o morphism_of (SH_susp k o SH_loop k)%functor f)%morphism.
 Proof.
-  apply SpectrumMorphism_eq.
-  intro n.
-  apply SchemeMorphism_eq.
-  reflexivity.
+  apply all_SpectrumMorphisms_equal.
 Defined.
 
 Definition SH_epsilon `{Funext} (k : BaseField)
@@ -1851,7 +1956,7 @@ Proof.
             (SH_epsilon_component k)
             _).
   intros E F f.
-  exact (SH_epsilon_natural k E F f).
+  exact (SH_epsilon_natural k E F f)^.
 Defined.
 
 Definition SH_PreStable `{Funext} (k : BaseField)
@@ -1898,7 +2003,9 @@ Defined.
 Definition SH_eta_inverse `{Funext} (k : BaseField) (E : MotivicSpectrum k)
   : morphism (SH k) (object_of (SH_loop k o SH_susp k)%functor E) E.
 Proof.
-  refine {| spm_level := fun n => {| sm_data := tt |} |}.
+  refine {| spm_level := fun n => _ |}.
+  simpl.
+  exact (zero_scheme_morphism k _ _).
 Defined.
 
 Lemma SH_eta_iso `{Funext} (k : BaseField) (E : MotivicSpectrum k)
@@ -1907,20 +2014,16 @@ Proof.
   unfold IsIsomorphism.
   exists (SH_eta_inverse k E).
   split.
-  - apply SpectrumMorphism_eq.
-    intro n.
-    apply SchemeMorphism_eq.
-    reflexivity.
-  - apply SpectrumMorphism_eq.
-    intro n.
-    apply SchemeMorphism_eq.
-    reflexivity.
+  - apply all_SpectrumMorphisms_equal.
+  - apply all_SpectrumMorphisms_equal.
 Defined.
 
 Definition SH_epsilon_inverse `{Funext} (k : BaseField) (E : MotivicSpectrum k)
   : morphism (SH k) E (object_of (SH_susp k o SH_loop k)%functor E).
 Proof.
-  refine {| spm_level := fun n => {| sm_data := tt |} |}.
+  refine {| spm_level := fun n => _ |}.
+  simpl.
+  exact (zero_scheme_morphism k _ _).
 Defined.
 
 Lemma SH_epsilon_iso `{Funext} (k : BaseField) (E : MotivicSpectrum k)
@@ -1929,39 +2032,22 @@ Proof.
   unfold IsIsomorphism.
   exists (SH_epsilon_inverse k E).
   split.
-  - apply SpectrumMorphism_eq.
-    intro n.
-    apply SchemeMorphism_eq.
-    reflexivity.
-  - apply SpectrumMorphism_eq.
-    intro n.
-    apply SchemeMorphism_eq.
-    reflexivity.
+  - apply all_SpectrumMorphisms_equal.
+  - apply all_SpectrumMorphisms_equal.
 Defined.
 
 Lemma SH_triangle_1 `{Funext} (k : BaseField) (E : MotivicSpectrum k)
   : (SH_epsilon_component k (object_of (SH_susp k) E) o
      morphism_of (SH_susp k) (SH_eta_component k E) = 1)%morphism.
 Proof.
-  apply SpectrumMorphism_eq.
-  intro n.
-  apply SchemeMorphism_eq.
-  reflexivity.
+  apply all_SpectrumMorphisms_equal.
 Defined.
 
 Lemma SH_triangle_2 `{Funext} (k : BaseField) (E : MotivicSpectrum k)
   : (morphism_of (SH_loop k) (SH_epsilon_component k E) o
      SH_eta_component k (object_of (SH_loop k) E) = 1)%morphism.
 Proof.
-  apply SpectrumMorphism_eq.
-  intro n.
-  destruct n.
-  - simpl.
-    apply SchemeMorphism_eq.
-    reflexivity.
-  - simpl.
-    apply SchemeMorphism_eq.
-    reflexivity.
+  apply all_SpectrumMorphisms_equal.
 Defined.
 
 Record ProperStableCategory := {
@@ -1996,16 +2082,10 @@ Proof.
   unfold ZeroFiberInTriangleImpliesIso.
   intros dt Hzero.
   unfold IsIsomorphism.
-  exists {| spm_level := fun n => {| sm_data := tt |} |}.
+  exists {| spm_level := fun n => zero_scheme_morphism k _ _ |}.
   split.
-  - apply SpectrumMorphism_eq.
-    intro n.
-    apply SchemeMorphism_eq.
-    reflexivity.
-  - apply SpectrumMorphism_eq.
-    intro n.
-    apply SchemeMorphism_eq.
-    reflexivity.
+  - apply all_SpectrumMorphisms_equal.
+  - apply all_SpectrumMorphisms_equal.
 Defined.
 
 Theorem SH_tower_convergence `{Funext} (k : BaseField)
@@ -2039,16 +2119,10 @@ Theorem SH_all_morphisms_iso `{Funext} (k : BaseField)
   : IsIsomorphism f.
 Proof.
   unfold IsIsomorphism.
-  exists {| spm_level := fun n => {| sm_data := tt |} |}.
+  exists {| spm_level := fun n => zero_scheme_morphism k _ _ |}.
   split.
-  - apply SpectrumMorphism_eq.
-    intro n.
-    apply SchemeMorphism_eq.
-    reflexivity.
-  - apply SpectrumMorphism_eq.
-    intro n.
-    apply SchemeMorphism_eq.
-    reflexivity.
+  - apply all_SpectrumMorphisms_equal.
+  - apply all_SpectrumMorphisms_equal.
 Defined.
 
 Theorem SH_tower_trivially_stabilizes `{Funext} (k : BaseField)
@@ -2274,14 +2348,222 @@ Proof.
   intros n Hn.
   apply (tis_iso_transfer (opposite_prestable (SH_PreStable k)) T n).
   unfold IsIsomorphism.
-  exists {| spm_level := fun m => {| sm_data := tt |} |}.
+  exists {| spm_level := fun m => zero_scheme_morphism k _ _ |}.
   split.
-  - apply SpectrumMorphism_eq.
-    intro m.
-    apply SchemeMorphism_eq.
+  - apply all_SpectrumMorphisms_equal.
+  - apply all_SpectrumMorphisms_equal.
+Defined.
+
+(** ** Discrete Measures and Concrete Witnesses *)
+
+Definition qpos_eq_dec (q1 q2 : QPos)
+  : (q1 = q2) + (q1 = q2 -> Empty).
+Proof.
+  destruct q1 as [n1 d1].
+  destruct q2 as [n2 d2].
+  destruct (nat_eq_dec n1 n2) as [Hn | Hn].
+  - destruct (nat_eq_dec d1 d2) as [Hd | Hd].
+    + left.
+      destruct Hn, Hd.
+      reflexivity.
+    + right.
+      intro H.
+      apply Hd.
+      exact (ap qpos_denom_pred H).
+  - right.
+    intro H.
+    apply Hn.
+    exact (ap qpos_num H).
+Defined.
+
+Definition nat_to_qpos (n : nat) : QPos :=
+  {| qpos_num := n; qpos_denom_pred := 0 |}.
+
+Definition IsIntegerValued (measure : nat -> QPos) : Type :=
+  forall n, qpos_denom_pred (measure n) = O.
+
+Lemma qpos_lt_of_integer (q1 q2 : QPos)
+  (H1 : qpos_denom_pred q1 = O)
+  (H2 : qpos_denom_pred q2 = O)
+  : qpos_lt q1 q2 <-> nat_lt (qpos_num q1) (qpos_num q2).
+Proof.
+  unfold qpos_lt, qpos_denom.
+  rewrite H1, H2.
+  simpl.
+  rewrite nat_mul_one_r.
+  rewrite nat_mul_one_r.
+  split; exact idmap.
+Defined.
+
+Lemma nat_le_refl
+  : forall n, nat_le n n.
+Proof.
+  induction n.
+  - exact tt.
+  - exact IHn.
+Defined.
+
+Lemma nat_le_of_lt
+  : forall n m, nat_lt n m -> nat_le n m.
+Proof.
+  intros n.
+  induction n.
+  - intros m _.
+    exact tt.
+  - intros m H.
+    destruct m.
+    + destruct H.
+    + exact (IHn m H).
+Defined.
+
+Lemma nat_lt_or_eq_or_gt
+  : forall n m, (nat_lt n m) + (n = m) + (nat_lt m n).
+Proof.
+  intro n.
+  induction n.
+  - intro m.
+    destruct m.
+    + left.
+      right.
+      reflexivity.
+    + left.
+      left.
+      exact tt.
+  - intro m.
+    destruct m.
+    + right.
+      exact tt.
+    + destruct (IHn m) as [[Hlt | Heq] | Hgt].
+      * left.
+        left.
+        exact Hlt.
+      * left.
+        right.
+        exact (ap S Heq).
+      * right.
+        exact Hgt.
+Defined.
+
+Lemma nat_lt_1_S_empty
+  : forall k, nat_lt (S k) 1 -> Empty.
+Proof.
+  intro k.
+  simpl.
+  destruct k; exact idmap.
+Defined.
+
+Lemma S_eq_1_implies_O
+  : forall k, S k = S O -> k = O.
+Proof.
+  intros k H.
+  exact (ap nat_pred H).
+Defined.
+
+Lemma integer_valued_trichotomy_aux
+  (q : QPos)
+  (Hd : qpos_denom_pred q = O)
+  : (qpos_is_zero q) +
+    (qpos_lt (nat_to_qpos (S O)) q + (q = nat_to_qpos (S O))).
+Proof.
+  unfold qpos_is_zero, qpos_lt, nat_to_qpos, qpos_denom.
+  destruct q as [mn md].
+  simpl in *.
+  rewrite Hd.
+  simpl.
+  destruct mn as [|k].
+  - left.
     reflexivity.
-  - apply SpectrumMorphism_eq.
-    intro m.
-    apply SchemeMorphism_eq.
-    reflexivity.
+  - right.
+    destruct k as [|k'].
+    + right.
+      destruct Hd.
+      reflexivity.
+    + left.
+      exact tt.
+Defined.
+
+Lemma integer_valued_trichotomy
+  (measure : nat -> QPos)
+  (H_int : IsIntegerValued measure)
+  (n : nat)
+  : (qpos_is_zero (measure n)) +
+    (qpos_lt (nat_to_qpos (S O)) (measure n) + (measure n = nat_to_qpos (S O))).
+Proof.
+  exact (integer_valued_trichotomy_aux (measure n) (H_int n)).
+Defined.
+
+Theorem integer_valued_has_minimal_positive
+  (measure : nat -> QPos)
+  (H_int : IsIntegerValued measure)
+  : HasMinimalPositive measure.
+Proof.
+  unfold HasMinimalPositive.
+  exists (nat_to_qpos (S O)).
+  split.
+  - simpl.
+    exact tt.
+  - intro n.
+    exact (integer_valued_trichotomy measure H_int n).
+Defined.
+
+Corollary integer_LimitZero_implies_EventuallyZero
+  (measure : nat -> QPos)
+  (H_int : IsIntegerValued measure)
+  (H_limit : LimitZero measure)
+  : EventuallyZero measure.
+Proof.
+  apply discrete_LimitZero_implies_EventuallyZero.
+  - exact (integer_valued_has_minimal_positive measure H_int).
+  - exact H_limit.
+Defined.
+
+Lemma spectrum_dim_measure_is_integer (k : BaseField) (E : MotivicSpectrum k)
+  : qpos_denom_pred (spectrum_dim_measure k E) = O.
+Proof.
+  unfold spectrum_dim_measure.
+  simpl.
+  reflexivity.
+Defined.
+
+Lemma SH_weight_measure_is_integer `{Funext} (k : BaseField)
+  (E : object (SH k))
+  : qpos_denom_pred (wm_measure (SH k) (SH_zero k) (SH_weight_measure k) E) = O.
+Proof.
+  unfold SH_weight_measure, wm_measure.
+  simpl.
+  exact (spectrum_dim_measure_is_integer k E).
+Defined.
+
+Definition tis_fiber_measure_integer `{Funext} (k : BaseField)
+  (T : TowerInStable (SH_PreStable k))
+  : IsIntegerValued (tis_fiber_measure T (SH_weight_measure k)).
+Proof.
+  unfold IsIntegerValued, tis_fiber_measure.
+  intro n.
+  exact (SH_weight_measure_is_integer k (tis_fiber_obj T n)).
+Defined.
+
+Theorem SH_tower_convergence_from_limit `{Funext} (k : BaseField)
+  (T : TowerInStable (SH_PreStable k))
+  (H_zero_meas : ZeroMeasureImpliesZeroObj (SH_PreStable k) (SH_weight_measure k))
+  (H_limit : LimitZero (tis_fiber_measure T (SH_weight_measure k)))
+  : { N : nat & TowerStabilizesAt (tis_tower (SH_PreStable k) T) N }.
+Proof.
+  apply (stable_tower_stabilizes T (SH_weight_measure k)
+           (SH_zero_fiber_implies_iso k) H_zero_meas).
+  - exact (integer_valued_has_minimal_positive
+             (tis_fiber_measure T (SH_weight_measure k))
+             (tis_fiber_measure_integer k T)).
+  - exact H_limit.
+Defined.
+
+Theorem SH_unconditional_stabilization `{Funext} (k : BaseField)
+  (T : TowerInStable (SH_PreStable k))
+  : { N : nat & TowerStabilizesAt (tis_tower (SH_PreStable k) T) N }.
+Proof.
+  exists O.
+  unfold TowerStabilizesAt.
+  intros n _.
+  apply (tis_iso_transfer (SH_PreStable k) T n).
+  apply SH_all_morphisms_iso.
 Defined.
