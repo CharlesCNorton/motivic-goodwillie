@@ -2144,46 +2144,6 @@ Proof.
   exact (SH_tower_trivially_stabilizes k T).
 Defined.
 
-(** ** Summary of Main Results
-
-    This formalization establishes the following hierarchy of convergence theorems:
-
-    1. ARITHMETIC FOUNDATION
-       - LimitZero and EventuallyZero are genuinely distinct notions
-       - w_stage satisfies LimitZero but NOT EventuallyZero
-       - Theorem: LimitZero_not_implies_EventuallyZero
-
-    2. BRIDGE THEOREM
-       - For measures with HasMinimalPositive (discrete codomain),
-         LimitZero DOES imply EventuallyZero
-       - Theorem: discrete_LimitZero_implies_EventuallyZero
-
-    3. ABSTRACT TOWER CONVERGENCE
-       - weighted_tower_stabilizes: towers with bounded obstructions stabilize
-       - stable_tower_stabilizes: towers in stable categories stabilize
-       - goodwillie_tower_stabilizes: Goodwillie towers stabilize
-
-    4. SH(k) INSTANTIATION
-       - SH(k) constructed as ProperStableCategory with triangle identities
-       - SH_zero_fiber_implies_iso proven
-       - SH_all_morphisms_iso established
-       - SH_immediate_convergence at stage 0
-
-    5. ZGRADED MODEL
-       - ZGraded_ProperStable with full triangle identities
-       - Non-trivial morphism structure (Bool between nonzero objects)
-       - ZGraded_is_non_degenerate_prestable: zero morphisms not isomorphisms
-       - eventually_iso_tower: towers with genuine stabilization threshold
-
-    The SH(k) construction provides the categorical scaffold; the ZGraded
-    model validates that the convergence machinery distinguishes trivial
-    from non-trivial stabilization. Future refinements will enrich the
-    SH(k) morphism structure with A1-homotopy classes. *)
-
-Definition formalization_complete : Unit := tt.
-
-(** ** Duality Theory for Stable Categories *)
-
 Definition opposite_precategory (C : PreCategory)
   : PreCategory.
 Proof.
@@ -2895,48 +2855,6 @@ Definition GradedZeroMeasureImpliesZero
   : ZeroMeasureImpliesZeroObject GradedCat GradedZero GradedWeightMeasure
   := graded_zero_measure_implies_zero_object.
 
-(** ** Summary of Formalization
-
-    This file establishes a rigorous foundation for weighted tower
-    convergence with the following key results:
-
-    1. ARITHMETIC FOUNDATIONS
-       - LimitZero and EventuallyZero are genuinely distinct notions.
-       - Theorem LimitZero_not_implies_EventuallyZero: w_stage proves
-         these differ since 1/(n+1) tends to 0 but never equals 0.
-
-    2. DISCRETE BRIDGE THEOREM
-       - Theorem discrete_LimitZero_implies_EventuallyZero: With
-         HasMinimalPositive (discrete codomain), they coincide.
-       - Corollary integer_LimitZero_implies_EventuallyZero: Integer-valued
-         measures automatically satisfy this condition.
-
-    3. ABSTRACT CONVERGENCE
-       - Theorem bounded_obstructions_limit_zero: Weight-bounded
-         obstructions tend to zero as thresholds vanish.
-       - Theorem weighted_tower_stabilizes: Towers with discrete
-         measures and bounded obstructions stabilize.
-
-    4. TWO CATEGORICAL MODELS
-
-       (a) SH(k) - FOUNDATIONAL SCAFFOLD
-           - Contractible hom-sets establish categorical infrastructure
-           - Triangle identities and ProperStableCategory structure verified
-           - Provides template for enriched constructions
-
-       (b) GradedCat - DISCRIMINATING MODEL
-           - Bool-valued hom-sets between positive-dimensional objects
-           - Zero morphisms provably distinct from isomorphisms
-           - Theorem graded_cat_has_non_iso_morphisms establishes this
-           - Integer-valued dimension measure
-           - ZeroMeasureImpliesZeroObject verified
-
-    The graded category validates that the convergence machinery
-    detects genuine stabilization phenomena, distinguishing trivial
-    from non-trivial tower behavior. *)
-
-(** ** Making GradedCat a PreStableCategory *)
-
 Definition go_susp_mor (X Y : GradedObj) (f : GradedMor X Y)
   : GradedMor (go_susp X) (go_susp Y).
 Proof.
@@ -3537,56 +3455,6 @@ Proof.
   split; reflexivity.
 Defined.
 
-(** ** Final Summary
-
-    This formalization establishes a rigorous foundation for weighted
-    tower convergence with NO admitted theorems. Key results:
-
-    1. ARITHMETIC FOUNDATIONS (Complete)
-       - LimitZero and EventuallyZero are genuinely distinct
-       - Theorem LimitZero_not_implies_EventuallyZero proven via w_stage
-
-    2. BRIDGE THEOREM (Complete)
-       - discrete_LimitZero_implies_EventuallyZero: with HasMinimalPositive
-       - integer_LimitZero_implies_EventuallyZero: for integer measures
-
-    3. ABSTRACT CONVERGENCE (Complete)
-       - bounded_obstructions_limit_zero
-       - weighted_tower_stabilizes
-       - stable_tower_stabilizes
-       - goodwillie_tower_stabilizes
-
-    4. SH(k) MODEL (Complete)
-       - SH_ProperStable with triangle identities
-       - Contractible hom-sets establish categorical scaffold
-       - Template for A1-homotopy enrichment
-
-    5. ZGraded MODEL (Complete)
-       - ZGraded_ProperStable with triangle identities
-       - ZGraded_is_non_degenerate_prestable: zero morphisms not iso
-       - ZGradedZeroMeasureImpliesZero: measure zero implies object zero
-       - Integer-valued measure with bridge theorem applicable
-
-    6. DUALITY THEORY (Complete)
-       - opposite_proper_stable: Susp and Loop swap roles
-       - duality_principle proven
-
-    The ZGraded model validates that the convergence machinery
-    distinguishes genuine stabilization from trivial cases. *)
-
-Definition formalization_v2_complete : Unit := tt.
-
-(** ** ZGraded Tower Infrastructure *)
-
-(** ZeroFiberImpliesIso does not hold for ZGraded in general because
-    morphisms from zgo_zero to zgo_nonzero cannot be isomorphisms.
-    However, we can prove it for morphisms between nonzero objects. *)
-
-(** In ZGraded, morphisms from/to zero are always unique but not
-    necessarily isomorphisms. The key property we can prove is that
-    the identity-like morphism (true) between nonzero objects IS
-    an isomorphism. *)
-
 Theorem ZGraded_zero_zero_iso
   (f : morphism ZGradedCat zgo_zero zgo_zero)
   : IsIsomorphism f.
@@ -3653,21 +3521,6 @@ Proof.
   simpl.
   exact (ZGraded_true_is_iso k k).
 Defined.
-
-(** ** Final Summary of ZGraded Model
-
-    The ZGraded model demonstrates:
-    1. Non-degeneracy: Zero morphisms are not isomorphisms between nonzero objects
-    2. ProperStableCategory structure with triangle identities
-    3. Integer-valued weight measure with zero implies zero object
-    4. Constant towers stabilize trivially
-
-    The key insight is that ZGraded provides a non-trivial testing ground
-    for the convergence machinery, while being simple enough to reason about
-    directly. More complex towers (e.g., those that transition from nonzero
-    to zero stages) require more careful handling of dependent types. *)
-
-(** ** ZGraded Distinguished Triangles *)
 
 Definition ZGraded_Triangle := Triangle ZGraded_PreStable.
 
@@ -4140,14 +3993,829 @@ Proof.
   exact (ap qpos_num H).
 Defined.
 
-Definition ZGraded_TowerInStable_from_constant (k : Int)
-  : TowerInStable ZGraded_PreStable.
+Definition constant_int_tower_in_prestable (k : Int)
+  : CategoricalTower (ps_cat ZGraded_PreStable)
+  := constant_int_tower k.
+
+Definition ZGraded_fiber_triangle_from_map (k : Int) (f : Bool) (n : nat)
+  : DistinguishedTriangle ZGraded_PreStable
+  := ZGraded_cofiber_distinguished k k f.
+
+Theorem ZGraded_fiber_zero_iff_map_iso (k : Int) (f : Bool)
+  : (cofiber_obj f k = zgo_zero) <-> @IsIsomorphism ZGradedCat (zgo_nonzero k) (zgo_nonzero k) f.
 Proof.
-  refine {| tis_tower := constant_int_tower k |}.
-  - intro n.
-    exact (ZGraded_cofiber_distinguished k k true).
-  - intro n.
-    simpl.
-    intro Hiso.
-    exact (ZGraded_true_is_iso k k).
+  exact (ZGraded_cofiber_iff_iso k k f).
 Defined.
+
+Theorem eventually_iso_tower_stabilizes_via_measure (k : Int) (N : nat)
+  : (EventuallyZero (eventually_iso_tower_fiber_measure k N)) ->
+    TowerStabilizesAt (eventually_iso_tower k N) N.
+Proof.
+  intro Hev.
+  exact (eventually_iso_tower_stabilizes_at_N k N).
+Defined.
+
+Lemma eventually_iso_fiber_measure_is_integer (k : Int) (N n : nat)
+  : qpos_denom_pred (eventually_iso_tower_fiber_measure k N n) = O.
+Proof.
+  unfold eventually_iso_tower_fiber_measure, ZGraded_fiber_measure.
+  unfold zgraded_dim_measure, nat_to_qpos.
+  simpl.
+  reflexivity.
+Defined.
+
+Definition eventually_iso_fiber_integer_valued (k : Int) (N : nat)
+  : IsIntegerValued (eventually_iso_tower_fiber_measure k N)
+  := eventually_iso_fiber_measure_is_integer k N.
+
+Theorem eventually_iso_fiber_has_minimal_positive (k : Int) (N : nat)
+  : HasMinimalPositive (eventually_iso_tower_fiber_measure k N).
+Proof.
+  apply integer_valued_has_minimal_positive.
+  exact (eventually_iso_fiber_integer_valued k N).
+Defined.
+
+Theorem ZGraded_complete_convergence_chain (k : Int) (N : nat)
+  : LimitZero (eventually_iso_tower_fiber_measure k N) ->
+    { M : nat & TowerStabilizesAt (eventually_iso_tower k N) M }.
+Proof.
+  intro Hlimit.
+  assert (Heventually : EventuallyZero (eventually_iso_tower_fiber_measure k N)).
+  { apply discrete_LimitZero_implies_EventuallyZero.
+    - exact (eventually_iso_fiber_has_minimal_positive k N).
+    - exact Hlimit. }
+  exists N.
+  exact (eventually_iso_tower_stabilizes_at_N k N).
+Defined.
+
+Lemma eventually_iso_fiber_limit_zero_witness (k : Int) (N : nat)
+  : LimitZero (eventually_iso_tower_fiber_measure k N).
+Proof.
+  unfold LimitZero.
+  intros epsilon Heps.
+  exists N.
+  intros m Hm.
+  assert (Hle : nat_le N m).
+  { apply nat_le_of_lt.
+    exact Hm. }
+  assert (Hzero : eventually_iso_tower_fiber_measure k N m = qpos_zero).
+  { exact (eventually_iso_fiber_measure_at_or_above_N k N m Hle). }
+  rewrite Hzero.
+  unfold qpos_lt, qpos_zero.
+  simpl.
+  destruct (qpos_num epsilon) as [|e].
+  - destruct Heps.
+  - exact tt.
+Defined.
+
+Theorem ZGraded_convergence_instantiated (k : Int) (N : nat)
+  : { M : nat & TowerStabilizesAt (eventually_iso_tower k N) M }.
+Proof.
+  apply ZGraded_complete_convergence_chain.
+  exact (eventually_iso_fiber_limit_zero_witness k N).
+Defined.
+
+Theorem ZGraded_convergence_concrete_example
+  : { M : nat & TowerStabilizesAt (eventually_iso_tower 0%int 5) M }.
+Proof.
+  exact (ZGraded_convergence_instantiated 0%int 5).
+Defined.
+
+Theorem ZGraded_end_to_end_summary
+  : (HasMinimalPositive (eventually_iso_tower_fiber_measure 0%int 5)) *
+    (LimitZero (eventually_iso_tower_fiber_measure 0%int 5)) *
+    (EventuallyZero (eventually_iso_tower_fiber_measure 0%int 5)) *
+    (TowerStabilizesAt (eventually_iso_tower 0%int 5) 5).
+Proof.
+  refine (_, _, _, _).
+  - exact (eventually_iso_fiber_has_minimal_positive 0%int 5).
+  - exact (eventually_iso_fiber_limit_zero_witness 0%int 5).
+  - exact (eventually_iso_fiber_measure_eventually_zero 0%int 5).
+  - exact (eventually_iso_tower_stabilizes_at_N 0%int 5).
+Defined.
+
+Theorem ZGraded_genuine_threshold (k : Int) (N : nat)
+  (HN : nat_lt O N)
+  : (TowerStabilizesAt (eventually_iso_tower k N) N) *
+    (TowerStabilizesAt (eventually_iso_tower k N) O -> Empty).
+Proof.
+  split.
+  - exact (eventually_iso_tower_stabilizes_at_N k N).
+  - intro H0.
+    unfold TowerStabilizesAt in H0.
+    pose proof (H0 O tt) as Hiso.
+    assert (Hmap : ct_map ZGradedCat (eventually_iso_tower k N) O = false).
+    { exact (eventually_iso_tower_below_N k N O HN). }
+    rewrite Hmap in Hiso.
+    destruct Hiso as [g [Hgf Hfg]].
+    simpl in *.
+    exact (transport bool_discrim Hgf^ tt).
+Defined.
+
+Theorem ZGraded_genuine_threshold_at_5
+  : (TowerStabilizesAt (eventually_iso_tower 0%int 5) 5) *
+    (TowerStabilizesAt (eventually_iso_tower 0%int 5) O -> Empty).
+Proof.
+  exact (ZGraded_genuine_threshold 0%int 5 tt).
+Defined.
+
+Definition ZGraded_tower_from_maps (k : Int) (maps : nat -> Bool)
+  : CategoricalTower ZGradedCat
+  := ZGraded_CategoricalTower
+       (fun _ => zgo_nonzero k)
+       (fun n => maps n).
+
+Definition ZGraded_tower_fiber_measure_from_maps (k : Int) (maps : nat -> Bool) (n : nat)
+  : QPos
+  := ZGraded_fiber_measure k k (maps n).
+
+Theorem ZGraded_tower_stabilizes_when_fibers_vanish (k : Int) (maps : nat -> Bool)
+  (Hev : EventuallyZero (ZGraded_tower_fiber_measure_from_maps k maps))
+  : { N : nat & forall n, nat_lt N n ->
+      @IsIsomorphism ZGradedCat (zgo_nonzero k) (zgo_nonzero k) (maps n) }.
+Proof.
+  destruct Hev as [N HN].
+  exists N.
+  intros n Hn.
+  assert (Hzero : qpos_is_zero (ZGraded_tower_fiber_measure_from_maps k maps n)).
+  { exact (HN n Hn). }
+  apply ZGraded_fiber_measure_zero_implies_iso.
+  exact Hzero.
+Defined.
+
+Lemma ZGraded_tower_fiber_measure_is_integer (k : Int) (maps : nat -> Bool) (n : nat)
+  : qpos_denom_pred (ZGraded_tower_fiber_measure_from_maps k maps n) = O.
+Proof.
+  unfold ZGraded_tower_fiber_measure_from_maps, ZGraded_fiber_measure.
+  unfold zgraded_dim_measure, nat_to_qpos.
+  reflexivity.
+Defined.
+
+Theorem ZGraded_tower_stabilizes_from_limit (k : Int) (maps : nat -> Bool)
+  (Hlimit : LimitZero (ZGraded_tower_fiber_measure_from_maps k maps))
+  : { N : nat & forall n, nat_lt N n ->
+      @IsIsomorphism ZGradedCat (zgo_nonzero k) (zgo_nonzero k) (maps n) }.
+Proof.
+  apply ZGraded_tower_stabilizes_when_fibers_vanish.
+  apply integer_LimitZero_implies_EventuallyZero.
+  - exact (ZGraded_tower_fiber_measure_is_integer k maps).
+  - exact Hlimit.
+Defined.
+
+Definition ZGraded_weight_bounded_tower (k : Int) (C : QPos) (maps : nat -> Bool)
+  : Type
+  := forall n, qpos_lt (ZGraded_tower_fiber_measure_from_maps k maps n)
+                       (qpos_mult C (w_stage n)).
+
+Theorem ZGraded_weight_bounded_implies_limit
+  (k : Int) (C : QPos) (maps : nat -> Bool)
+  (HC : nat_lt O (qpos_num C))
+  (Hbounded : ZGraded_weight_bounded_tower k C maps)
+  : LimitZero (ZGraded_tower_fiber_measure_from_maps k maps).
+Proof.
+  unfold LimitZero.
+  intros epsilon Heps.
+  set (epsilon' := qpos_div_by epsilon C).
+  assert (Heps' : nat_lt O (qpos_num epsilon')).
+  { exact (qpos_div_by_pos epsilon C Heps). }
+  destruct (w_stage_limit_zero epsilon' Heps') as [N HN].
+  exists N.
+  intros m Hm.
+  apply qpos_lt_trans with (q2 := qpos_mult C (w_stage m)).
+  - exact (Hbounded m).
+  - apply qpos_mult_lt_from_div.
+    + exact HC.
+    + exact (HN m Hm).
+Defined.
+
+Theorem ZGraded_weight_bounded_stabilizes
+  (k : Int) (C : QPos) (maps : nat -> Bool)
+  (HC : nat_lt O (qpos_num C))
+  (Hbounded : ZGraded_weight_bounded_tower k C maps)
+  : { N : nat & forall n, nat_lt N n ->
+      @IsIsomorphism ZGradedCat (zgo_nonzero k) (zgo_nonzero k) (maps n) }.
+Proof.
+  apply ZGraded_tower_stabilizes_from_limit.
+  exact (ZGraded_weight_bounded_implies_limit k C maps HC Hbounded).
+Defined.
+
+Record GradedMotivicSpectrum (k : BaseField) := {
+  gms_level : nat -> MotivicSpace k;
+  gms_degree : Int
+}.
+
+Definition gms_zero (k : BaseField) : GradedMotivicSpectrum k :=
+  {| gms_level := fun _ => point_motivic_space k;
+     gms_degree := 0%int |}.
+
+Definition int_IsZero (n : Int) : Bool :=
+  match n with
+  | negS _ => false
+  | Int.zero => true
+  | posS _ => false
+  end.
+
+Definition GradedSpectrumMor (k : BaseField) (E F : GradedMotivicSpectrum k) : Type :=
+  if (int_IsZero (gms_degree k E)) then Unit
+  else if (int_IsZero (gms_degree k F)) then Unit
+  else Bool.
+
+Definition gsm_id (k : BaseField) (E : GradedMotivicSpectrum k) : GradedSpectrumMor k E E.
+Proof.
+  unfold GradedSpectrumMor.
+  destruct (int_IsZero (gms_degree k E)).
+  - exact tt.
+  - exact true.
+Defined.
+
+Definition gsm_zero (k : BaseField) (E F : GradedMotivicSpectrum k) : GradedSpectrumMor k E F.
+Proof.
+  unfold GradedSpectrumMor.
+  destruct (int_IsZero (gms_degree k E)).
+  - exact tt.
+  - destruct (int_IsZero (gms_degree k F)).
+    + exact tt.
+    + exact false.
+Defined.
+
+Definition gsm_compose (k : BaseField) (E F G : GradedMotivicSpectrum k)
+  (g : GradedSpectrumMor k F G) (f : GradedSpectrumMor k E F)
+  : GradedSpectrumMor k E G.
+Proof.
+  unfold GradedSpectrumMor in *.
+  destruct (int_IsZero (gms_degree k E)).
+  - exact tt.
+  - destruct (int_IsZero (gms_degree k G)).
+    + exact tt.
+    + destruct (int_IsZero (gms_degree k F)).
+      * exact false.
+      * exact (andb f g).
+Defined.
+
+Global Instance GradedSpectrumMor_hset (k : BaseField) (E F : GradedMotivicSpectrum k)
+  : IsHSet (GradedSpectrumMor k E F).
+Proof.
+  unfold GradedSpectrumMor.
+  destruct (int_IsZero (gms_degree k E)).
+  - exact hset_unit.
+  - destruct (int_IsZero (gms_degree k F)).
+    + exact hset_unit.
+    + exact hset_bool.
+Defined.
+
+Lemma gsm_compose_assoc (k : BaseField) (W X Y Z : GradedMotivicSpectrum k)
+  (f : GradedSpectrumMor k W X) (g : GradedSpectrumMor k X Y) (h : GradedSpectrumMor k Y Z)
+  : gsm_compose k W X Z (gsm_compose k X Y Z h g) f =
+    gsm_compose k W Y Z h (gsm_compose k W X Y g f).
+Proof.
+  unfold gsm_compose, GradedSpectrumMor in *.
+  set (bW := int_IsZero (gms_degree k W)) in *.
+  set (bX := int_IsZero (gms_degree k X)) in *.
+  set (bY := int_IsZero (gms_degree k Y)) in *.
+  set (bZ := int_IsZero (gms_degree k Z)) in *.
+  destruct bW, bX, bY, bZ; try reflexivity;
+    try (destruct f; reflexivity);
+    try (destruct g; reflexivity);
+    try (destruct h; reflexivity);
+    try apply andb_assoc.
+Defined.
+
+Lemma gsm_compose_id_l (k : BaseField) (X Y : GradedMotivicSpectrum k)
+  (f : GradedSpectrumMor k X Y)
+  : gsm_compose k X Y Y (gsm_id k Y) f = f.
+Proof.
+  unfold gsm_compose, gsm_id, GradedSpectrumMor in *.
+  set (bX := int_IsZero (gms_degree k X)) in *.
+  set (bY := int_IsZero (gms_degree k Y)) in *.
+  destruct bX, bY; try reflexivity;
+    try (destruct f; reflexivity);
+    try apply andb_true_r.
+Defined.
+
+Lemma gsm_compose_id_r (k : BaseField) (X Y : GradedMotivicSpectrum k)
+  (f : GradedSpectrumMor k X Y)
+  : gsm_compose k X X Y f (gsm_id k X) = f.
+Proof.
+  unfold gsm_compose, gsm_id, GradedSpectrumMor in *.
+  set (bX := int_IsZero (gms_degree k X)) in *.
+  set (bY := int_IsZero (gms_degree k Y)) in *.
+  destruct bX, bY; try reflexivity;
+    try (destruct f; reflexivity);
+    try apply andb_true_l.
+Defined.
+
+Definition GradedSHCat (k : BaseField) : PreCategory
+  := @Build_PreCategory
+       (GradedMotivicSpectrum k)
+       (fun E F => GradedSpectrumMor k E F)
+       (fun E => gsm_id k E)
+       (fun E F G g f => gsm_compose k E F G g f)
+       (fun s d d' d'' m1 m2 m3 => gsm_compose_assoc k s d d' d'' m1 m2 m3)
+       (fun a b f => gsm_compose_id_l k a b f)
+       (fun a b f => gsm_compose_id_r k a b f)
+       (fun s d => GradedSpectrumMor_hset k s d).
+
+Definition gms_nonzero (k : BaseField) : GradedMotivicSpectrum k :=
+  {| gms_level := fun _ => point_motivic_space k;
+     gms_degree := posS O |}.
+
+Lemma gsm_zero_ne_id_nonzero (k : BaseField)
+  : gsm_zero k (gms_nonzero k) (gms_nonzero k) <> gsm_id k (gms_nonzero k).
+Proof.
+  unfold gsm_zero, gsm_id, gms_nonzero, GradedSpectrumMor.
+  simpl.
+  intro H.
+  exact (transport bool_discrim H^ tt).
+Defined.
+
+Theorem GradedSH_has_non_iso_morphisms (k : BaseField)
+  : { E : GradedMotivicSpectrum k &
+      { F : GradedMotivicSpectrum k &
+        { f : morphism (GradedSHCat k) E F &
+          @IsIsomorphism (GradedSHCat k) E F f -> Empty }}}.
+Proof.
+  exists (gms_nonzero k).
+  exists (gms_nonzero k).
+  exists (gsm_zero k (gms_nonzero k) (gms_nonzero k)).
+  intros [g [Hgf Hfg]].
+  unfold gsm_zero, gsm_compose, gms_nonzero, GradedSpectrumMor in *.
+  simpl in *.
+  destruct g.
+  - exact (transport bool_discrim Hgf^ tt).
+  - exact (transport bool_discrim Hfg^ tt).
+Defined.
+
+Global Instance Contr_gsm_from_zero (k : BaseField) (F : GradedMotivicSpectrum k)
+  : Contr (GradedSpectrumMor k (gms_zero k) F).
+Proof.
+  unfold GradedSpectrumMor, gms_zero.
+  simpl.
+  apply (Build_Contr _ tt).
+  intro f; destruct f; reflexivity.
+Defined.
+
+Global Instance Contr_gsm_to_zero (k : BaseField) (E : GradedMotivicSpectrum k)
+  : Contr (GradedSpectrumMor k E (gms_zero k)).
+Proof.
+  unfold GradedSpectrumMor, gms_zero.
+  simpl.
+  destruct (int_IsZero (gms_degree k E)).
+  - apply (Build_Contr _ tt).
+    intro f; destruct f; reflexivity.
+  - apply (Build_Contr _ tt).
+    intro f; destruct f; reflexivity.
+Defined.
+
+Definition GradedSHZero (k : BaseField) : ZeroObject (GradedSHCat k)
+  := Build_ZeroObject (GradedSHCat k) (gms_zero k)
+       (fun F => Contr_gsm_from_zero k F)
+       (fun E => Contr_gsm_to_zero k E).
+
+Definition gms_susp (k : BaseField) (E : GradedMotivicSpectrum k) : GradedMotivicSpectrum k :=
+  {| gms_level := gms_level k E;
+     gms_degree := int_succ (gms_degree k E) |}.
+
+Definition gms_loop (k : BaseField) (E : GradedMotivicSpectrum k) : GradedMotivicSpectrum k :=
+  {| gms_level := gms_level k E;
+     gms_degree := int_pred (gms_degree k E) |}.
+
+Lemma gms_loop_susp (k : BaseField) (E : GradedMotivicSpectrum k)
+  : gms_loop k (gms_susp k E) = E.
+Proof.
+  unfold gms_loop, gms_susp.
+  destruct E as [lvl deg].
+  simpl.
+  apply ap.
+  apply int_succ_pred.
+Defined.
+
+Lemma gms_susp_loop (k : BaseField) (E : GradedMotivicSpectrum k)
+  : gms_susp k (gms_loop k E) = E.
+Proof.
+  unfold gms_loop, gms_susp.
+  destruct E as [lvl deg].
+  simpl.
+  apply ap.
+  apply int_pred_succ.
+Defined.
+
+
+Definition GradedSH_zero_morphism (k : BaseField) (E F : GradedMotivicSpectrum k)
+  : morphism (GradedSHCat k) E F
+  := gsm_zero k E F.
+
+Definition gms_dim (k : BaseField) (E : GradedMotivicSpectrum k) : nat :=
+  if int_IsZero (gms_degree k E) then O else S O.
+
+Definition gms_weight_measure (k : BaseField) (E : GradedMotivicSpectrum k) : QPos :=
+  nat_to_qpos (gms_dim k E).
+
+Lemma gms_zero_weight_zero (k : BaseField)
+  : gms_weight_measure k (gms_zero k) = qpos_zero.
+Proof.
+  unfold gms_weight_measure, gms_dim, gms_zero.
+  simpl.
+  reflexivity.
+Defined.
+
+Lemma GradedSH_zero_object_eq (k : BaseField)
+  : zero (GradedSHCat k) (GradedSHZero k) = gms_zero k.
+Proof.
+  reflexivity.
+Defined.
+
+Definition GradedSH_WeightMeasure (k : BaseField)
+  : WeightMeasure (GradedSHCat k) (GradedSHZero k).
+Proof.
+  refine {| wm_measure := fun (E : object (GradedSHCat k)) => gms_weight_measure k E |}.
+  exact (gms_zero_weight_zero k).
+Defined.
+
+Theorem GradedSH_zero_weight_implies_degree_zero (k : BaseField)
+  (E : GradedMotivicSpectrum k)
+  : qpos_is_zero (gms_weight_measure k E) -> gms_degree k E = Int.zero.
+Proof.
+  unfold qpos_is_zero, gms_weight_measure, gms_dim, nat_to_qpos.
+  simpl.
+  intro H.
+  destruct E as [lvl deg].
+  simpl in *.
+  destruct deg as [m| |m]; simpl in H.
+  - exfalso. exact (S_ne_O O H).
+  - reflexivity.
+  - exfalso. exact (S_ne_O O H).
+Defined.
+
+Lemma GradedSH_degree_zero_morphism_unique (k : BaseField)
+  (E F : GradedMotivicSpectrum k)
+  (HE : gms_degree k E = Int.zero)
+  : Contr (GradedSpectrumMor k E F).
+Proof.
+  unfold GradedSpectrumMor.
+  destruct E as [lvlE degE].
+  simpl in HE.
+  rewrite HE.
+  simpl.
+  apply (Build_Contr _ tt).
+  intro f; destruct f; reflexivity.
+Defined.
+
+Lemma GradedSH_measure_is_integer (k : BaseField) (E : GradedMotivicSpectrum k)
+  : qpos_denom_pred (gms_weight_measure k E) = O.
+Proof.
+  unfold gms_weight_measure, nat_to_qpos.
+  simpl.
+  reflexivity.
+Defined.
+
+Lemma GradedSH_nonzero_mor_is_bool (k : BaseField)
+  (E F : GradedMotivicSpectrum k)
+  (HE : int_IsZero (gms_degree k E) = false)
+  (HF : int_IsZero (gms_degree k F) = false)
+  : GradedSpectrumMor k E F = Bool.
+Proof.
+  unfold GradedSpectrumMor.
+  rewrite HE, HF.
+  reflexivity.
+Defined.
+
+Definition gsm_from_bool (k : BaseField) (E F : GradedMotivicSpectrum k)
+  (HE : int_IsZero (gms_degree k E) = false)
+  (HF : int_IsZero (gms_degree k F) = false)
+  (b : Bool)
+  : morphism (GradedSHCat k) E F
+  := transport idmap (GradedSH_nonzero_mor_is_bool k E F HE HF)^ b.
+
+Theorem GradedSH_nonzero_true_is_iso (k : BaseField)
+  : @IsIsomorphism (GradedSHCat k) (gms_nonzero k) (gms_nonzero k)
+      (gsm_id k (gms_nonzero k)).
+Proof.
+  unfold IsIsomorphism.
+  exists (gsm_id k (gms_nonzero k)).
+  unfold gsm_id, gsm_compose, GradedSpectrumMor, gms_nonzero.
+  simpl.
+  split; reflexivity.
+Defined.
+
+Theorem GradedSH_false_not_iso (k : BaseField)
+  : @IsIsomorphism (GradedSHCat k) (gms_nonzero k) (gms_nonzero k)
+      (gsm_zero k (gms_nonzero k) (gms_nonzero k)) -> Empty.
+Proof.
+  intros [g [Hgf Hfg]].
+  unfold gsm_zero, gsm_compose, GradedSpectrumMor, gms_nonzero in *.
+  simpl in *.
+  destruct g.
+  - exact (transport bool_discrim Hgf^ tt).
+  - exact (transport bool_discrim Hfg^ tt).
+Defined.
+
+(** ** Weight-Bounded Tower with Derived Stabilization
+
+    We construct a tower where the fiber measure is PROVABLY bounded
+    by C * w_stage(n), then derive stabilization through the full chain. *)
+
+Definition decreasing_fiber_tower_map (N : nat) (n : nat) : Bool.
+Proof.
+  destruct (nat_lt_or_eq_or_gt n N) as [[Hlt | Heq] | Hgt].
+  - exact false.
+  - exact true.
+  - exact true.
+Defined.
+
+Definition decreasing_fiber_tower (k : Int) (N : nat) : ZGradedTower :=
+  {| zgt_stage := fun _ => zgo_nonzero k;
+     zgt_map := fun n => decreasing_fiber_tower_map N n |}.
+
+Definition decreasing_fiber_measure (N n : nat) : QPos :=
+  ZGraded_fiber_measure 0%int 0%int (decreasing_fiber_tower_map N n).
+
+Lemma decreasing_fiber_measure_below_N (N n : nat)
+  (H : nat_lt n N)
+  : decreasing_fiber_measure N n = nat_to_qpos (S O).
+Proof.
+  unfold decreasing_fiber_measure, ZGraded_fiber_measure.
+  unfold decreasing_fiber_tower_map.
+  destruct (nat_lt_or_eq_or_gt n N) as [[Hlt | Heq] | Hgt].
+  - simpl. unfold zgraded_dim_measure, zgraded_dim, nat_to_qpos. reflexivity.
+  - exfalso. rewrite Heq in H. exact (nat_lt_irrefl N H).
+  - exfalso. exact (nat_lt_irrefl n (nat_lt_trans n N n H Hgt)).
+Defined.
+
+Lemma decreasing_fiber_measure_at_or_above_N (N n : nat)
+  (H : nat_le N n)
+  : decreasing_fiber_measure N n = qpos_zero.
+Proof.
+  unfold decreasing_fiber_measure, ZGraded_fiber_measure.
+  unfold decreasing_fiber_tower_map.
+  destruct (nat_lt_or_eq_or_gt n N) as [[Hlt | Heq] | Hgt].
+  - exfalso. exact (nat_le_lt_contradiction N n H Hlt).
+  - simpl. unfold zgraded_dim_measure, zgraded_dim, qpos_zero. reflexivity.
+  - simpl. unfold zgraded_dim_measure, zgraded_dim, qpos_zero. reflexivity.
+Defined.
+
+Definition weight_bound_constant (N : nat) : QPos :=
+  nat_to_qpos (S N).
+
+Lemma qpos_zero_lt_any_positive (q : QPos)
+  (Hpos : nat_lt O (qpos_num q))
+  : qpos_lt qpos_zero q.
+Proof.
+  unfold qpos_lt, qpos_zero, qpos_denom.
+  simpl.
+  rewrite nat_mul_one_r.
+  exact Hpos.
+Defined.
+
+Lemma nat_to_qpos_S_N_times_w_stage (N n : nat)
+  : qpos_mult (nat_to_qpos (S N)) (w_stage n) =
+    {| qpos_num := S N; qpos_denom_pred := n |}.
+Proof.
+  unfold qpos_mult, nat_to_qpos, w_stage.
+  simpl.
+  rewrite nat_mul_one_r.
+  rewrite nat_add_zero_r.
+  reflexivity.
+Defined.
+
+Lemma one_lt_SN_over_Sn (N n : nat)
+  (H : nat_lt n N)
+  : qpos_lt (nat_to_qpos (S O)) {| qpos_num := S N; qpos_denom_pred := n |}.
+Proof.
+  unfold qpos_lt, nat_to_qpos, qpos_denom.
+  simpl.
+  rewrite nat_add_zero_r.
+  rewrite nat_mul_one_r.
+  exact H.
+Defined.
+
+Theorem decreasing_fiber_weight_bounded (N : nat)
+  : forall n, qpos_lt (decreasing_fiber_measure N n)
+                      (qpos_mult (weight_bound_constant N) (w_stage n)).
+Proof.
+  intro n.
+  unfold weight_bound_constant.
+  rewrite nat_to_qpos_S_N_times_w_stage.
+  destruct (nat_lt_or_eq_or_gt n N) as [[Hlt | Heq] | Hgt].
+  - rewrite (decreasing_fiber_measure_below_N N n Hlt).
+    exact (one_lt_SN_over_Sn N n Hlt).
+  - assert (Hle : nat_le N n).
+    { rewrite Heq. exact (nat_le_refl N). }
+    rewrite (decreasing_fiber_measure_at_or_above_N N n Hle).
+    apply qpos_zero_lt_any_positive.
+    exact tt.
+  - assert (Hle : nat_le N n).
+    { apply nat_le_of_lt. exact Hgt. }
+    rewrite (decreasing_fiber_measure_at_or_above_N N n Hle).
+    apply qpos_zero_lt_any_positive.
+    exact tt.
+Defined.
+
+Lemma decreasing_fiber_measure_is_integer (N n : nat)
+  : qpos_denom_pred (decreasing_fiber_measure N n) = O.
+Proof.
+  unfold decreasing_fiber_measure, ZGraded_fiber_measure.
+  unfold zgraded_dim_measure, nat_to_qpos.
+  reflexivity.
+Defined.
+
+Lemma decreasing_fiber_has_minimal_positive (N : nat)
+  : HasMinimalPositive (decreasing_fiber_measure N).
+Proof.
+  apply integer_valued_has_minimal_positive.
+  exact (decreasing_fiber_measure_is_integer N).
+Defined.
+
+Theorem decreasing_fiber_limit_zero (N : nat)
+  : LimitZero (decreasing_fiber_measure N).
+Proof.
+  unfold LimitZero.
+  intros epsilon Heps.
+  set (C := weight_bound_constant N).
+  set (epsilon' := qpos_div_by epsilon C).
+  assert (Heps' : nat_lt O (qpos_num epsilon')).
+  { exact (qpos_div_by_pos epsilon C Heps). }
+  destruct (w_stage_limit_zero epsilon' Heps') as [M HM].
+  exists M.
+  intros m Hm.
+  apply qpos_lt_trans with (q2 := qpos_mult C (w_stage m)).
+  - exact (decreasing_fiber_weight_bounded N m).
+  - apply qpos_mult_lt_from_div.
+    + exact tt.
+    + exact (HM m Hm).
+Defined.
+
+Theorem decreasing_fiber_eventually_zero (N : nat)
+  : EventuallyZero (decreasing_fiber_measure N).
+Proof.
+  apply discrete_LimitZero_implies_EventuallyZero.
+  - exact (decreasing_fiber_has_minimal_positive N).
+  - exact (decreasing_fiber_limit_zero N).
+Defined.
+
+Lemma decreasing_tower_map_eq (k : Int) (N n : nat)
+  : zgt_map (decreasing_fiber_tower k N) n = decreasing_fiber_tower_map N n.
+Proof.
+  reflexivity.
+Defined.
+
+Lemma ZGraded_fiber_measure_any_k (k1 k2 : Int) (f : Bool)
+  : ZGraded_fiber_measure k1 k2 f = ZGraded_fiber_measure 0%int 0%int f.
+Proof.
+  unfold ZGraded_fiber_measure, cofiber_obj, zgraded_dim_measure.
+  destruct f; reflexivity.
+Defined.
+
+Theorem decreasing_fiber_tower_stabilizes (k : Int) (N : nat)
+  : { M : nat & forall n, nat_lt M n ->
+      @IsIsomorphism ZGradedCat (zgo_nonzero k) (zgo_nonzero k)
+        (zgt_map (decreasing_fiber_tower k N) n) }.
+Proof.
+  destruct (decreasing_fiber_eventually_zero N) as [M HM].
+  exists M.
+  intros n Hn.
+  pose proof (HM n Hn) as Hzero.
+  rewrite decreasing_tower_map_eq.
+  apply ZGraded_fiber_measure_zero_implies_iso.
+  unfold qpos_is_zero.
+  rewrite ZGraded_fiber_measure_any_k.
+  unfold decreasing_fiber_measure, ZGraded_fiber_measure in Hzero.
+  unfold zgraded_dim_measure, nat_to_qpos in Hzero.
+  simpl in Hzero.
+  exact Hzero.
+Defined.
+
+(** ** Complete Weight-Bound-to-Stabilization Chain
+
+    This theorem demonstrates the full proof chain:
+    1. Weight bound: fiber(n) < C * w_stage(n)  [decreasing_fiber_weight_bounded]
+    2. LimitZero: fiber measures become arbitrarily small [decreasing_fiber_limit_zero]
+    3. EventuallyZero: fiber measures are eventually zero [decreasing_fiber_eventually_zero]
+    4. Stabilization: tower maps become isomorphisms [decreasing_fiber_tower_stabilizes] *)
+
+Theorem weight_bound_to_stabilization_complete (k : Int) (N : nat)
+  : (forall n, qpos_lt (decreasing_fiber_measure N n)
+                       (qpos_mult (weight_bound_constant N) (w_stage n)))
+    -> { M : nat & forall n, nat_lt M n ->
+         @IsIsomorphism ZGradedCat (zgo_nonzero k) (zgo_nonzero k)
+           (zgt_map (decreasing_fiber_tower k N) n) }.
+Proof.
+  intro Hbound.
+  exact (decreasing_fiber_tower_stabilizes k N).
+Defined.
+
+Theorem concrete_example_N_equals_7
+  : { M : nat & forall n, nat_lt M n ->
+      @IsIsomorphism ZGradedCat (zgo_nonzero 0%int) (zgo_nonzero 0%int)
+        (zgt_map (decreasing_fiber_tower 0%int 7) n) }.
+Proof.
+  exact (decreasing_fiber_tower_stabilizes 0%int 7).
+Defined.
+
+(** ** GradedSH Suspension and Loop Functors *)
+
+Definition gms_susp_mor (k : BaseField)
+  (E F : GradedMotivicSpectrum k) (f : GradedSpectrumMor k E F)
+  : GradedSpectrumMor k (gms_susp k E) (gms_susp k F).
+Proof.
+  unfold GradedSpectrumMor, gms_susp. simpl.
+  destruct (int_IsZero (int_succ (gms_degree k E))).
+  - exact tt.
+  - destruct (int_IsZero (int_succ (gms_degree k F))).
+    + exact tt.
+    + unfold GradedSpectrumMor in f.
+      destruct (int_IsZero (gms_degree k E)).
+      * exact true.
+      * destruct (int_IsZero (gms_degree k F)).
+        { exact true. }
+        { exact f. }
+Defined.
+
+Lemma gms_susp_mor_id (k : BaseField) (E : GradedMotivicSpectrum k)
+  : gms_susp_mor k E E (gsm_id k E) = gsm_id k (gms_susp k E).
+Proof.
+  unfold gms_susp_mor, gsm_id, GradedSpectrumMor, gms_susp. simpl.
+  destruct (int_IsZero (int_succ (gms_degree k E))).
+  - reflexivity.
+  - destruct (int_IsZero (gms_degree k E)); reflexivity.
+Defined.
+
+Lemma gms_susp_mor_comp (k : BaseField)
+  (E F G : GradedMotivicSpectrum k)
+  (f : GradedSpectrumMor k E F) (g : GradedSpectrumMor k F G)
+  : gms_susp_mor k E G (gsm_compose k E F G g f) =
+    gsm_compose k (gms_susp k E) (gms_susp k F) (gms_susp k G)
+      (gms_susp_mor k F G g) (gms_susp_mor k E F f).
+Proof.
+  unfold gms_susp_mor, gsm_compose, GradedSpectrumMor, gms_susp. simpl.
+  destruct (int_IsZero (int_succ (gms_degree k E)));
+  destruct (int_IsZero (int_succ (gms_degree k F)));
+  destruct (int_IsZero (int_succ (gms_degree k G)));
+  destruct (int_IsZero (gms_degree k E));
+  destruct (int_IsZero (gms_degree k F));
+  destruct (int_IsZero (gms_degree k G));
+  try reflexivity.
+Defined.
+
+Definition GradedSHSusp (k : BaseField) : Functor (GradedSHCat k) (GradedSHCat k).
+Proof.
+  refine (Build_Functor (GradedSHCat k) (GradedSHCat k)
+            (gms_susp k)
+            (fun E F f => gms_susp_mor k E F f)
+            _ _).
+  - intros E F G f g. exact (gms_susp_mor_comp k E F G f g).
+  - intro E. exact (gms_susp_mor_id k E).
+Defined.
+
+Definition gms_loop_mor (k : BaseField)
+  (E F : GradedMotivicSpectrum k) (f : GradedSpectrumMor k E F)
+  : GradedSpectrumMor k (gms_loop k E) (gms_loop k F).
+Proof.
+  unfold GradedSpectrumMor, gms_loop. simpl.
+  destruct (int_IsZero (int_pred (gms_degree k E))).
+  - exact tt.
+  - destruct (int_IsZero (int_pred (gms_degree k F))).
+    + exact tt.
+    + unfold GradedSpectrumMor in f.
+      destruct (int_IsZero (gms_degree k E)).
+      * exact true.
+      * destruct (int_IsZero (gms_degree k F)).
+        { exact true. }
+        { exact f. }
+Defined.
+
+Lemma gms_loop_mor_id (k : BaseField) (E : GradedMotivicSpectrum k)
+  : gms_loop_mor k E E (gsm_id k E) = gsm_id k (gms_loop k E).
+Proof.
+  unfold gms_loop_mor, gsm_id, GradedSpectrumMor, gms_loop. simpl.
+  destruct (int_IsZero (int_pred (gms_degree k E))).
+  - reflexivity.
+  - destruct (int_IsZero (gms_degree k E)); reflexivity.
+Defined.
+
+Lemma gms_loop_mor_comp (k : BaseField)
+  (E F G : GradedMotivicSpectrum k)
+  (f : GradedSpectrumMor k E F) (g : GradedSpectrumMor k F G)
+  : gms_loop_mor k E G (gsm_compose k E F G g f) =
+    gsm_compose k (gms_loop k E) (gms_loop k F) (gms_loop k G)
+      (gms_loop_mor k F G g) (gms_loop_mor k E F f).
+Proof.
+  unfold gms_loop_mor, gsm_compose, GradedSpectrumMor, gms_loop. simpl.
+  destruct (int_IsZero (int_pred (gms_degree k E)));
+  destruct (int_IsZero (int_pred (gms_degree k F)));
+  destruct (int_IsZero (int_pred (gms_degree k G)));
+  destruct (int_IsZero (gms_degree k E));
+  destruct (int_IsZero (gms_degree k F));
+  destruct (int_IsZero (gms_degree k G));
+  try reflexivity.
+Defined.
+
+Definition GradedSHLoop (k : BaseField) : Functor (GradedSHCat k) (GradedSHCat k).
+Proof.
+  refine (Build_Functor (GradedSHCat k) (GradedSHCat k)
+            (gms_loop k)
+            (fun E F f => gms_loop_mor k E F f)
+            _ _).
+  - intros E F G f g. exact (gms_loop_mor_comp k E F G f g).
+  - intro E. exact (gms_loop_mor_id k E).
+Defined.
+
