@@ -19,13 +19,7 @@
 (*                                                                             *)
 (*******************************************************************************)
 
-(** The three programs recorded here in earlier revisions are complete.
-    Graded motivic spectra carry genuine morphism data in the completed
-    proper stable category MotivicSH; the affine line of the concrete
-    scheme layer has actual points and separates scheme isomorphism from
-    A1-equivalence; and the level-family tower FamGoodwillieTower
-    instantiates GoodwillieTowerWithLayers with layers that honestly detect
-    its maps. *)
+(** MotivicSH carries genuine morphism data, the concrete affine line separates scheme isomorphism from A1-equivalence, and FamGoodwillieTower instantiates GoodwillieTowerWithLayers with detecting layers. *)
 
 From HoTT Require Import Basics.
 From HoTT.Basics Require Import Overture PathGroupoids Contractible Equivalences.
@@ -33,11 +27,7 @@ From HoTT.Types Require Import Bool Unit Empty Prod Sigma Universe.
 From HoTT.Categories Require Import Category Functor NaturalTransformation.
 From HoTT.Spaces Require Import Nat.Core Int.
 
-(** Arithmetic on nat (nat_pred, nat_add, nat_mul, nat_sub) and its algebraic
-    lemma suite are inherited from HoTT.Spaces.Nat.Core.  The order relations
-    nat_lt and nat_le below are retained as Type-valued fixpoints computing to
-    Unit or Empty, because the library leq is an inductive family with a
-    different computational shape; lemmas about them are local by necessity. *)
+(** Arithmetic on nat is inherited from HoTT.Spaces.Nat.Core; nat_lt and nat_le are Type-valued fixpoints computing to Unit or Empty. *)
 
 Fixpoint nat_lt (n m : nat) : Type :=
   match n, m with
@@ -69,9 +59,7 @@ Proof.
   - exact IHn.
 Defined.
 
-(** Reflection into the library order: the Type-valued relations reflect
-    into the library leq and lt, and the local lemma suite below is derived
-    through the reflection rather than reproven by parallel inductions. *)
+(** The Type-valued relations reflect into the library leq and lt, and the local suite is derived through the reflection. *)
 
 Lemma nat_le_refl
   : forall n, nat_le n n.
@@ -155,11 +143,7 @@ Proof.
            (lt_trans (lt_of_nat_lt m n H1) (lt_of_nat_lt n p H2))).
 Defined.
 
-(** Number notation for nat is inherited from the library through the nat
-    scope binding, so literals replace successor towers throughout.  The
-    tactic below discharges any goal that becomes a computation once every
-    Boolean and unit hypothesis is destructed; it replaces the quadruple
-    destruct case grinds of the graded and level categories. *)
+(** Numerals bind to nat through the scope; bool_bash discharges any goal that computes once every Boolean and Unit hypothesis is destructed. *)
 
 Ltac bool_bash :=
   repeat (simpl in *;
@@ -318,6 +302,12 @@ Proof.
   intros Hle Hlt.
   exact (lt_irrefl n
            (lt_lt_leq_trans (lt_of_nat_lt n N Hlt) (leq_of_nat_le N n Hle))).
+Defined.
+
+Lemma nat_lt_zero_absurd (n : nat) : nat_lt n O -> Empty.
+Proof.
+  intro Hlt.
+  exact (not_lt_zero_r n (lt_of_nat_lt n O Hlt)).
 Defined.
 
 Lemma nat_lt_or_eq_or_gt
@@ -727,9 +717,11 @@ Definition obs_bounded_by_weight (tower : WeightedTower) (od : ObstructionData t
   forall n, qpos_lt (obs_at_stage tower od n)
                     (qpos_mult (obs_bound_const tower od) (wt_threshold tower n)).
 
+(** Weak decrease is the correct axiom: strict decrease is jointly unsatisfiable with discreteness and the weight bound, as strict_decreasing_discrete_bounded_empty proves below. *)
+
 Definition obs_decreasing (tower : WeightedTower) (od : ObstructionData tower)
   : Type :=
-  forall n, qpos_lt (obs_at_stage tower od (S n)) (obs_at_stage tower od n).
+  forall n, qpos_le (obs_at_stage tower od (S n)) (obs_at_stage tower od n).
 
 Record BoundedObstruction (tower : WeightedTower) : Type := {
   bo_data : ObstructionData tower;
@@ -817,10 +809,7 @@ Proof.
           (transport (fun x => nat_lt x _) P_lhs H)).
 Defined.
 
-(** The master convergence lemma of the arithmetic core: a measure bounded
-    by a positive constant times a vanishing auxiliary measure vanishes.
-    Every bounded-implies-limit-zero statement in this file is a one-line
-    instance. *)
+(** Master convergence lemma: a measure bounded by a positive constant times a vanishing measure vanishes. *)
 
 Lemma bounded_limit_zero (measure aux : nat -> QPos) (C : QPos)
   (HC : nat_lt O (qpos_num C))
@@ -921,9 +910,7 @@ Definition iso_inverse {C : PreCategory} {X Y : object C} {f : morphism C X Y}
   : morphism C Y X
   := H.1.
 
-(** Being an isomorphism is a proposition: inverses are unique, and the
-    inverse equations live in hset hom-types, so inverse data rewrites
-    cleanly. *)
+(** Being an isomorphism over hset hom-types is a proposition. *)
 
 Global Instance ishprop_isisomorphism {C : PreCategory} {X Y : object C}
   (f : morphism C X Y)
@@ -994,6 +981,15 @@ Definition ZeroFiberImpliesIso (C : PreCategory) (Z : ZeroObject C)
   := forall (X Y : object C) (f : morphism C X Y) (fib : FiberData Z f),
      fd_fiber Z f fib = zero C Z -> IsIsomorphism f.
 
+(** The tower-local zero-fiber condition speaks only of the tower's own fiber data, since every morphism admits a degenerate zero-fiber datum and the global condition forces all maps to be isomorphisms. *)
+
+Definition TowerZeroFiberImpliesIso {C : PreCategory} {Z : ZeroObject C}
+  (T : TowerWithFibers C Z)
+  : Type
+  := forall n,
+     fd_fiber Z (ct_map C (twf_tower C Z T) n) (twf_fiber C Z T n) = zero C Z ->
+     IsIsomorphism (ct_map C (twf_tower C Z T) n).
+
 Definition ZeroMeasureImpliesZeroObject (C : PreCategory) (Z : ZeroObject C)
   (wm : WeightMeasure C Z)
   : Type
@@ -1003,7 +999,7 @@ Theorem zero_obstructions_imply_stabilization
   {C : PreCategory} {Z : ZeroObject C}
   (T : TowerWithFibers C Z)
   (wm : WeightMeasure C Z)
-  (H_zero_fiber : ZeroFiberImpliesIso C Z)
+  (H_zero_fiber : TowerZeroFiberImpliesIso T)
   (H_zero_measure : ZeroMeasureImpliesZeroObject C Z wm)
   (N : nat)
   (H_obs_zero : forall n, nat_le N n -> qpos_is_zero (wm_measure C Z wm (obstruction_obj T n)))
@@ -1011,7 +1007,7 @@ Theorem zero_obstructions_imply_stabilization
 Proof.
   unfold TowerStabilizesAt.
   intros n Hn.
-  apply H_zero_fiber with (fib := twf_fiber C Z T n).
+  apply H_zero_fiber.
   apply H_zero_measure.
   exact (H_obs_zero n Hn).
 Defined.
@@ -1045,10 +1041,40 @@ Proof.
     exact (qpos_lt_irrefl min_val Hlt).
 Defined.
 
-(** The categorical measure is tied to the arithmetic obstruction by
-    two-sided order bounds rather than an on-the-nose path, admitting the
-    richer models the strict form excludes; the strict form is recovered as
-    the special case where both bounds hold by reflexivity. *)
+(** Strict decrease, discreteness, and the weight bound are jointly unsatisfiable, which is why obs_decreasing asks only weak decrease. *)
+
+Lemma qpos_lt_into_zero_num (q r : QPos)
+  (Hr : qpos_num r = O) (H : qpos_lt q r)
+  : Empty.
+Proof.
+  apply (nat_lt_zero_absurd (nat_mul (qpos_num q) (qpos_denom r))).
+  exact (transport
+           (fun m => nat_lt (nat_mul (qpos_num q) (qpos_denom r))
+                       (nat_mul m (qpos_denom q)))
+           Hr H).
+Defined.
+
+Theorem strict_decreasing_discrete_bounded_empty
+  (tower : WeightedTower) (od : ObstructionData tower)
+  (Hstrict : forall n, qpos_lt (obs_at_stage tower od (S n))
+                               (obs_at_stage tower od n))
+  (Hbounded : obs_bounded_by_weight tower od)
+  (Hthresh : threshold_limit_zero tower)
+  (Hpos : nat_lt O (qpos_num (obs_bound_const tower od)))
+  (Hmin : HasMinimalPositive (obs_at_stage tower od))
+  : Empty.
+Proof.
+  pose (Hlim := bounded_limit_zero _ (wt_threshold tower) _ Hpos
+                  Hbounded Hthresh).
+  destruct (discrete_LimitZero_implies_EventuallyZero _ Hmin Hlim)
+    as [N HN].
+  apply (qpos_lt_into_zero_num (obs_at_stage tower od (S (S N)))
+           (obs_at_stage tower od (S N))).
+  - exact (HN (S N) (nat_lt_S N)).
+  - exact (Hstrict (S N)).
+Defined.
+
+(** The categorical measure is tied to the arithmetic obstruction by two-sided order bounds; the strict form is the reflexive special case. *)
 
 Record WeightedCategoricalTower (C : PreCategory) (Z : ZeroObject C) := {
   wct_arith : WeightedTower;
@@ -1068,14 +1094,7 @@ Definition obs_measure {C : PreCategory} {Z : ZeroObject C}
   : QPos
   := wm_measure C Z (wct_measure C Z wct) (obstruction_obj (wct_cat C Z wct) n).
 
-(** *** Morphism-respecting weight measures on towers
-
-    A tower weight measure carries the two axioms a weight function on a
-    tower must satisfy: each fiber measure is bounded by the measure of the
-    stage it is cut from, and stage measures do not increase down the
-    tower.  The matching conditions of a weighted categorical tower are
-    derived from these data by reading the arithmetic obstruction off the
-    fibers, where both order bounds hold by reflexivity. *)
+(** *** Tower weight measures: fibers bounded by their stage, stages non-increasing downward, and the matching conditions derived by reflexivity. *)
 
 Record TowerWeightMeasure (C : PreCategory) (Z : ZeroObject C)
   (T : TowerWithFibers C Z) := {
@@ -1139,7 +1158,7 @@ Theorem weighted_tower_stabilizes
   (H_bound_pos : nat_lt O (qpos_num (obs_bound_const (wct_arith C Z wct)
                    (bo_data (wct_arith C Z wct) (wct_bo C Z wct)))))
   (H_discrete : HasMinimalPositive (obs_measure wct))
-  (H_zero_fiber : ZeroFiberImpliesIso C Z)
+  (H_zero_fiber : TowerZeroFiberImpliesIso (wct_cat C Z wct))
   (H_zero_measure : ZeroMeasureImpliesZeroObject C Z (wct_measure C Z wct))
   : { N : nat & TowerStabilizesAt (twf_tower C Z (wct_cat C Z wct)) N }.
 Proof.
@@ -1224,13 +1243,7 @@ Definition ZeroMeasureImpliesZeroObj (SC : PreStableCategory)
   : Type
   := forall (X : object SC), qpos_is_zero (wm_measure SC (ps_zero SC) wm X) -> X = zero SC (ps_zero SC).
 
-(** *** Hom-level exactness for distinguished triangles
-
-    An exact distinguished triangle factors every test morphism killed by g
-    uniquely through f.  Exactness rules out the all-zero triangle on any
-    object whose identity is not the zero morphism, and it makes the
-    zero-fiber criterion a theorem: when the map to the cofiber vanishes,
-    the first map of the triangle is an isomorphism. *)
+(** *** Exact triangles factor every test morphism killed by g uniquely through f, ruling out all-zero triangles and making the zero-fiber criterion a theorem. *)
 
 Lemma zero_morphism_precompose {C : PreCategory} (Z : ZeroObject C)
   {W X Y : object C} (s : morphism C W X)
@@ -1554,9 +1567,7 @@ Definition point_scheme (k : BaseField) : Scheme k := affine_space k 0.
 Definition nat_eq_dec (n m : nat) : (n = m) + (n = m -> Empty)
   := decidable_paths_nat n m.
 
-(** Audit against the HoTT library: the truncation facts below are named
-    one-line derivations of library instances, retained because downstream
-    code refers to them by name; hset_bool is the library instance itself. *)
+(** Audit: the truncation facts below are one-line derivations of library instances, retained for downstream references by name. *)
 
 Global Instance hprop_unit : IsHProp Unit := istrunc_succ.
 
@@ -1636,9 +1647,7 @@ Definition sm_compose (k : BaseField) (X Y Z : Scheme k)
   : SchemeMorphism k X Z
   := {| sm_data := compose_data k X Y Z (sm_data k X Y f) (sm_data k Y Z g) |}.
 
-(** Audit against the HoTT library: HoTT.Types.Bool supplies only the implb
-    lemmas, so the conjunction algebra below has no library counterpart and
-    is retained locally. *)
+(** Audit: HoTT.Types.Bool supplies only implb lemmas, so the conjunction algebra is local. *)
 
 Lemma andb_assoc : forall a b c : Bool, andb a (andb b c) = andb (andb a b) c.
 Proof.
@@ -1811,13 +1820,7 @@ Definition section_to_A1 (k : BaseField) (X : Scheme k)
   : morphism (SchemeCategory k) X (scheme_with_A1 k X)
   := {| sm_data := section_to_A1_data k X |}.
 
-(** The morphism data of this scheme model is a singleton, so the category
-    is codiscrete: every parallel pair of morphisms is equal, and the
-    section identities below hold for every scheme, the point included.
-    The positivity hypothesis of section_projection_compose_positive is
-    provably dispensable; section_projection_compose_all removes it.  The
-    concrete scheme layer later in this file carries genuine morphism data
-    and separates scheme isomorphism from A1-equivalence. *)
+(** This scheme model has singleton morphism data, hence is codiscrete; the concrete layer later carries genuine morphisms and the honest separation. *)
 
 Lemma projection_section_compose (k : BaseField) (X : Scheme k)
   : (projection_from_A1 k X o section_to_A1 k X = 1)%morphism.
@@ -1852,12 +1855,7 @@ Proof.
   - exact (projection_section_compose k X).
 Defined.
 
-(** Every scheme of the codiscrete model is A1-invariant, the point
-    included, and the next two theorems witness this without any dimension
-    hypothesis.  In the concrete scheme layer, where the honest separation
-    lives, the projection from the product with the affine line is an
-    A1-equivalence for every scheme yet fails to be a scheme isomorphism
-    over F2 at the point. *)
+(** Every codiscrete scheme is A1-invariant without dimension hypotheses; the honest separation lives in the concrete layer. *)
 
 Theorem point_scheme_A1_invariant (k : BaseField)
   : IsA1Invariant k (point_scheme k).
@@ -2246,12 +2244,7 @@ Proof.
   exact (zero_scheme_morphism k _ _).
 Defined.
 
-(** The scheme morphism data is a singleton, so all parallel scheme
-    morphisms are equal; all_scheme_morphisms_equal makes the collapse
-    explicit, and all_SpectrumMorphisms_equal below is its spectrum-level
-    consequence.  The Bool-valued morphism models that genuinely
-    distinguish identities from zero maps are the graded categories
-    constructed later in this file. *)
+(** All parallel scheme morphisms are equal; the graded categories later carry the genuine distinctions. *)
 
 Theorem all_scheme_morphisms_equal (k : BaseField) (X Y : Scheme k)
   (f g : SchemeMorphism k X Y)
@@ -2878,13 +2871,7 @@ Proof.
   apply SH_all_morphisms_iso.
 Defined.
 
-(** ** Graded Category with Non-Trivial Morphism Structure
-
-    We construct a graded category with substantive morphism distinctions,
-    providing a model where the convergence machinery exhibits its full
-    discriminatory power. Objects are graded by dimension, and morphisms
-    between positive-dimensional objects carry Boolean data distinguishing
-    isomorphisms from zero maps. *)
+(** ** Graded category: objects graded by dimension, morphisms between positive dimensions carrying Boolean data distinguishing isomorphisms from zero maps. *)
 
 (** *** Graded Objects *)
 
@@ -2907,11 +2894,7 @@ Definition go_loop (X : GradedObj) : GradedObj :=
   | S (S n) => {| go_dim := S n |}
   end.
 
-(** *** Graded Morphisms
-
-    Morphisms in the graded category distinguish between zero and
-    non-zero maps. From/to the zero object, morphisms are unique.
-    Between non-zero objects, we track whether the map is zero or not. *)
+(** *** Graded morphisms: unique from and to zero, Boolean between nonzero objects. *)
 
 Definition GradedMor (X Y : GradedObj) : Type :=
   match go_dim X, go_dim Y with
@@ -3046,12 +3029,7 @@ Definition GradedZero : ZeroObject GradedCat
        (fun Y => Contr_gm_from_zero Y)
        (fun X => Contr_gm_to_zero X).
 
-(** *** Substantive Morphism Structure: Zero Maps Distinguished from Isomorphisms
-
-    The graded category exhibits the essential categorical property that
-    zero morphisms between positive-dimensional objects are genuinely
-    distinct from isomorphisms. This validates that the convergence
-    machinery can detect non-trivial stabilization phenomena. *)
+(** *** Zero maps between positive-dimensional objects are provably distinct from isomorphisms. *)
 
 Definition go_one : GradedObj := {| go_dim := S O |}.
 
@@ -3095,8 +3073,7 @@ Proof.
   exact Heq.
 Defined.
 
-(** The graded category contains morphisms that are provably not isomorphisms,
-    establishing that the stabilization criteria are substantive. *)
+(** The graded category contains provable non-isomorphisms. *)
 
 Theorem graded_cat_has_non_iso_morphisms
   : { X : GradedObj & { Y : GradedObj & { f : morphism GradedCat X Y &
@@ -3108,9 +3085,7 @@ Proof.
   exact graded_zero_morphism_not_iso.
 Defined.
 
-(** *** Weight Measure on Graded Category
-
-    The dimension provides a natural integer-valued measure. *)
+(** *** Dimension as an integer-valued weight measure. *)
 
 Definition graded_dim_measure (X : GradedObj) : QPos :=
   nat_to_qpos (go_dim X).
@@ -3136,9 +3111,7 @@ Proof.
   reflexivity.
 Defined.
 
-(** *** Key Theorem: Graded Zero Implies Object is Zero
-
-    This is the crucial bridge between measure and geometry. *)
+(** *** Zero measure forces the zero object. *)
 
 Theorem graded_zero_measure_implies_zero_object (X : GradedObj)
   : qpos_is_zero (graded_dim_measure X) -> X = go_zero.
@@ -3244,21 +3217,9 @@ Proof.
   - reflexivity.
 Defined.
 
-(** The loop action on nat-graded objects is not functorial on its own,
-    because dimension one objects map to zero and composition through them
-    collapses.  The completion is the functor GradedLoopThroughZ below the
-    Z-graded instance: the nat-graded category embeds into the Z-graded one
-    by a payload functor, the loop is a genuine functor there, and the
-    composite agrees with the pointwise loop above dimension one
-    (graded_loop_factors). *)
+(** The pointwise loop is not functorial on nat-graded objects; GradedLoopThroughZ completes it through the Z-graded instance, agreeing above dimension one by graded_loop_factors. *)
 
-(** ** The Threshold Tower Construction
-
-    Both concrete stabilization examples in this file arise from a single
-    parametrized construction: the Boolean map family that is false strictly
-    below a threshold N and true from N onward, together with its fiber
-    measure and the full convergence suite.  The named suites
-    eventually_iso_* and decreasing_fiber_* are instances of it. *)
+(** ** The threshold tower: false strictly below N and true from N onward; both concrete stabilization suites are instances. *)
 
 Definition threshold_tower_map (N : nat) (n : nat) : Bool.
 Proof.
@@ -3313,14 +3274,7 @@ Defined.
 (*  STABLE HOMOTOPY CATEGORY                                                   *)
 (*******************************************************************************)
 
-(** The Z-graded proper stable category generalizes over its grading: given
-    any payload type A with a shift system, that is endomaps s and l that
-    are mutually inverse, the pointed category on A carries a proper stable
-    structure.  Instantiating A at graded motivic spectra with gms_susp and
-    gms_loop as the shift completes GradedSHCat to a proper stable category
-    in which the suspension genuinely shifts spectra and non-isomorphisms
-    exist, so the SH-level stabilization theorems restated over it have
-    load-bearing hypotheses. *)
+(** Any payload type with a shift system generates a proper stable category; instantiating at graded motivic spectra completes the motivic stable homotopy category with load-bearing hypotheses. *)
 
 Inductive ShiftObj (A : Type) : Type :=
   | sh_zero : ShiftObj A
@@ -3978,13 +3932,7 @@ Defined.
 
 End ShiftSystem.
 
-(** ** Z-Graded Category as the Shift Instance at the Integers
-
-    The Z-graded category is the shift category over Int: its objects,
-    morphisms, operations, laws, zero object, suspension and loop functors,
-    stable structure, weight measure, and cofiber machinery are one-line
-    instances of the generic construction, so the formerly parallel lemma
-    suite collapses into corollaries. *)
+(** ** The Z-graded category is the shift category over Int; its formerly parallel suite collapses into instance corollaries. *)
 
 Definition ZGradedObj : Type := ShiftObj Int.
 
@@ -4189,11 +4137,7 @@ Proof.
   reflexivity.
 Defined.
 
-(** Note: ZeroFiberInTriangleImpliesIso does not hold in full generality
-    for ZGraded_PreStable because morphisms from zgo_zero to zgo_nonzero
-    cannot be isomorphisms - composition through zero yields false.
-    However, the non-degeneracy and convergence machinery still applies
-    to towers where stages are non-zero graded objects. *)
+(** ZeroFiberInTriangleImpliesIso fails in full generality for ZGraded_PreStable; the convergence machinery applies to towers with nonzero stages. *)
 
 Theorem ZGraded_nonzero_identity_is_iso (n : Int)
   : @IsIsomorphism ZGradedCat (zgo_nonzero n) (zgo_nonzero n) (zgm_id (zgo_nonzero n)).
@@ -4221,8 +4165,7 @@ Proof.
   split; reflexivity.
 Defined.
 
-(** For a direct tower approach, we define towers with explicit
-    isomorphism witnesses rather than relying on fiber conditions. *)
+(** Towers with explicit isomorphism witnesses rather than fiber conditions. *)
 
 Record ZGradedTower := {
   zgt_stage : nat -> ZGradedObj;
@@ -4278,11 +4221,7 @@ Proof.
   exact (ZGraded_true_is_iso k k).
 Defined.
 
-(** ** The nat-graded category identifies with the shift instance
-
-    The dimension-graded objects convert to nat-payload shift objects, the
-    conversion extends to a functor, and hom-types agree on the nose, so
-    the nat-graded morphism theory is the shift morphism theory. *)
+(** ** The nat-graded category identifies with the shift instance over nat: a conversion functor with on-the-nose hom agreement. *)
 
 Definition go_conv (X : GradedObj) : ShiftObj nat :=
   match go_dim X with
@@ -4318,13 +4257,7 @@ Proof.
     destruct dx; reflexivity.
 Defined.
 
-(** ** The loop functor of the nat-graded category, completed through Z
-
-    Payload maps induce functors of shift categories, so the nat-graded
-    category embeds into the Z-graded one, where the loop is a genuine
-    functor; the composite completes the loop action that nat-grading alone
-    cannot make functorial, and it agrees with the pointwise loop above
-    dimension one. *)
+(** ** Payload maps induce functors of shift categories, embedding the nat-graded category into the Z-graded one where the loop is functorial. *)
 
 Definition sh_payload_obj {A B : Type} (phi : A -> B) (X : ShiftObj A)
   : ShiftObj B
@@ -4835,12 +4768,34 @@ Proof.
   exact (ZGraded_cofiber_iff_iso k k f).
 Defined.
 
-Theorem eventually_iso_tower_stabilizes_via_measure (k : Int) (N : nat)
-  : (EventuallyZero (eventually_iso_tower_fiber_measure k N)) ->
-    TowerStabilizesAt (eventually_iso_tower k N) N.
+(** A zero fiber measure forces the tower map to be true, hence an isomorphism. *)
+
+Lemma eventually_iso_fiber_zero_iso (k : Int) (N n : nat)
+  (Hz : qpos_is_zero (eventually_iso_tower_fiber_measure k N n))
+  : IsIsomorphism (ct_map ZGradedCat (eventually_iso_tower k N) n).
 Proof.
-  intro Hev.
-  exact (eventually_iso_tower_stabilizes_at_N k N).
+  destruct (bool_dec_eq (eventually_iso_tower_map N n)) as [Hb | Hb].
+  - exact (transport
+             (fun b => @IsIsomorphism ZGradedCat
+                         (zgo_nonzero k) (zgo_nonzero k) b)
+             Hb^ (ZGraded_true_is_iso k k)).
+  - apply Empty_rec.
+    pose (Hz' := transport
+                   (fun b => qpos_is_zero (ZGraded_fiber_measure k k b))
+                   Hb Hz).
+    exact (transport (fun m : nat => match m with O => Empty | S _ => Unit end)
+             Hz' tt).
+Defined.
+
+(** The stabilization stage is read off the measure witness, so the hypothesis is load-bearing. *)
+
+Theorem eventually_iso_tower_stabilizes_via_measure (k : Int) (N : nat)
+  (Hev : EventuallyZero (eventually_iso_tower_fiber_measure k N))
+  : TowerStabilizesAt (eventually_iso_tower k N) (S Hev.1).
+Proof.
+  intros n Hn.
+  exact (eventually_iso_fiber_zero_iso k N n
+           (Hev.2 n (nat_lt_of_le_succ Hev.1 n Hn))).
 Defined.
 
 Lemma eventually_iso_fiber_measure_is_integer (k : Int) (N n : nat)
@@ -4866,12 +4821,12 @@ Theorem ZGraded_complete_convergence_chain (k : Int) (N : nat)
     { M : nat & TowerStabilizesAt (eventually_iso_tower k N) M }.
 Proof.
   intro Hlimit.
-  assert (Heventually : EventuallyZero (eventually_iso_tower_fiber_measure k N)).
-  { apply discrete_LimitZero_implies_EventuallyZero.
-    - exact (eventually_iso_fiber_has_minimal_positive k N).
-    - exact Hlimit. }
-  exists N.
-  exact (eventually_iso_tower_stabilizes_at_N k N).
+  pose (Hev := discrete_LimitZero_implies_EventuallyZero
+                 (eventually_iso_tower_fiber_measure k N)
+                 (eventually_iso_fiber_has_minimal_positive k N)
+                 Hlimit).
+  exists (S Hev.1).
+  exact (eventually_iso_tower_stabilizes_via_measure k N Hev).
 Defined.
 
 Lemma eventually_iso_fiber_limit_zero_witness (k : Int) (N : nat)
@@ -5106,9 +5061,7 @@ Definition GradedSHCat (k : BaseField) : PreCategory
        (fun a b f => gsm_compose_id_r k a b f)
        (fun s d => GradedSpectrumMor_hset k s d).
 
-(** The spectrum-graded category identifies with the shift instance over
-    nonzero-degree spectra: objects convert by deciding the degree, and the
-    hom-types agree on the nose. *)
+(** The spectrum-graded category identifies with the shift instance over nonzero-degree spectra by deciding the degree. *)
 
 Definition gsm_conv_obj (k : BaseField) (E : GradedMotivicSpectrum k)
   : ShiftObj { E' : GradedMotivicSpectrum k &
@@ -5337,10 +5290,7 @@ Proof.
   - exact (transport bool_discrim Hfg^ tt).
 Defined.
 
-(** ** Weight-Bounded Tower with Derived Stabilization
-
-    We construct a tower where the fiber measure is PROVABLY bounded
-    by C * w_stage(n), then derive stabilization through the full chain. *)
+(** ** A tower with fiber measure provably bounded by C times the stage weight, with stabilization derived through the full chain. *)
 
 Definition decreasing_fiber_tower_map (N : nat) (n : nat) : Bool
   := threshold_tower_map N n.
@@ -5476,13 +5426,7 @@ Proof.
   exact Hzero.
 Defined.
 
-(** ** Complete Weight-Bound-to-Stabilization Chain
-
-    This theorem demonstrates the full proof chain:
-    1. Weight bound: fiber(n) < C * w_stage(n)  [decreasing_fiber_weight_bounded]
-    2. LimitZero: fiber measures become arbitrarily small [decreasing_fiber_limit_zero]
-    3. EventuallyZero: fiber measures are eventually zero [decreasing_fiber_eventually_zero]
-    4. Stabilization: tower maps become isomorphisms [decreasing_fiber_tower_stabilizes] *)
+(** ** The full chain: weight bound, limit zero, eventually zero, stabilization. *)
 
 Theorem weight_bound_to_stabilization_complete (k : Int) (N : nat)
   : (forall n, qpos_lt (decreasing_fiber_measure N n)
@@ -5495,6 +5439,153 @@ Proof.
   exact (decreasing_fiber_tower_stabilizes k N).
 Defined.
 
+(** *** The non-degenerate instances of the two flagship records *)
+
+Lemma qpos_zero_le (q : QPos) : qpos_le qpos_zero q.
+Proof.
+  unfold qpos_le, qpos_zero.
+  simpl.
+  exact tt.
+Defined.
+
+Lemma decreasing_fiber_measure_nonincreasing (N n : nat)
+  : qpos_le (decreasing_fiber_measure N (S n)) (decreasing_fiber_measure N n).
+Proof.
+  destruct (nat_lt_or_eq_or_gt (S n) N) as [[Hlt | Heq] | Hgt].
+  - refine (transport (fun q => qpos_le q _)
+             (decreasing_fiber_measure_below_N N (S n) Hlt)^ _).
+    refine (transport (fun q => qpos_le _ q)
+             (decreasing_fiber_measure_below_N N n
+                (nat_lt_trans n (S n) N (nat_lt_S n) Hlt))^ _).
+    exact (qpos_le_refl _).
+  - refine (transport (fun q => qpos_le q _)
+             (decreasing_fiber_measure_at_or_above_N N (S n)
+                (transport (fun m => nat_le m (S n)) Heq
+                   (nat_le_refl (S n))))^ _).
+    exact (qpos_zero_le _).
+  - refine (transport (fun q => qpos_le q _)
+             (decreasing_fiber_measure_at_or_above_N N (S n)
+                (nat_le_of_lt N (S n) Hgt))^ _).
+    exact (qpos_zero_le _).
+Defined.
+
+Definition wct_dec_tower (N : nat) : CategoricalTower ZGradedCat
+  := Build_CategoricalTower ZGradedCat
+       (fun _ => zgo_nonzero 0%int)
+       (fun n => decreasing_fiber_tower_map N n).
+
+Definition wct_dec_fibers (N : nat)
+  : TowerWithFibers ZGradedCat ZGradedZero.
+Proof.
+  refine (Build_TowerWithFibers ZGradedCat ZGradedZero (wct_dec_tower N)
+            (fun n =>
+               @Build_FiberData ZGradedCat ZGradedZero
+                 (zgo_nonzero 0%int) (zgo_nonzero 0%int)
+                 (decreasing_fiber_tower_map N n)
+                 (cofiber_obj (decreasing_fiber_tower_map N n) 0%int)
+                 (zgm_zero
+                    (cofiber_obj (decreasing_fiber_tower_map N n) 0%int)
+                    (zgo_nonzero 0%int))
+                 _)).
+  exact (zgm_compose_zero_l
+           (cofiber_obj (decreasing_fiber_tower_map N n) 0%int)
+           (zgo_nonzero 0%int) (zgo_nonzero 0%int)
+           (decreasing_fiber_tower_map N n)
+         @ (ps_zero_is_zgm_zero
+              (cofiber_obj (decreasing_fiber_tower_map N n) 0%int)
+              (zgo_nonzero 0%int))^).
+Defined.
+
+Definition wct_dec_obs_data (N : nat) : ObstructionData stage_tower
+  := @Build_ObstructionData stage_tower
+       (weight_bound_constant N) (decreasing_fiber_measure N).
+
+Definition wct_dec_bo (N : nat) : BoundedObstruction stage_tower
+  := @Build_BoundedObstruction stage_tower
+       (wct_dec_obs_data N)
+       (decreasing_fiber_weight_bounded N)
+       (decreasing_fiber_measure_nonincreasing N).
+
+Definition wct_dec_instance (N : nat)
+  : WeightedCategoricalTower ZGradedCat ZGradedZero
+  := @Build_WeightedCategoricalTower ZGradedCat ZGradedZero
+       stage_tower
+       (wct_dec_bo N)
+       (wct_dec_fibers N)
+       ZGradedWeightMeasure
+       (fun n => qpos_le_refl _)
+       (fun n => qpos_le_refl _).
+
+Lemma wct_dec_zero_fiber (N : nat)
+  : TowerZeroFiberImpliesIso (wct_dec_fibers N).
+Proof.
+  intros n Hz.
+  destruct (bool_dec_eq (decreasing_fiber_tower_map N n)) as [Hb | Hb].
+  - exact (transport
+             (fun b => @IsIsomorphism ZGradedCat
+                         (zgo_nonzero 0%int) (zgo_nonzero 0%int) b)
+             Hb^ (ZGraded_true_is_iso 0%int 0%int)).
+  - apply Empty_rec.
+    apply (zgo_nonzero_ne_zero 0%int).
+    exact (ap (fun b => cofiber_obj b 0%int) Hb^ @ Hz).
+Defined.
+
+Lemma wct_dec_zero_measure
+  : ZeroMeasureImpliesZeroObject ZGradedCat ZGradedZero ZGradedWeightMeasure.
+Proof.
+  intros X Hz.
+  exact (ZGraded_zero_measure_implies_zero X Hz).
+Defined.
+
+Theorem wct_instance_stabilizes (N : nat)
+  : { M : nat &
+      TowerStabilizesAt (twf_tower ZGradedCat ZGradedZero (wct_dec_fibers N)) M }.
+Proof.
+  apply (weighted_tower_stabilizes (wct_dec_instance N)).
+  - exact w_stage_limit_zero.
+  - exact tt.
+  - exact (decreasing_fiber_has_minimal_positive N).
+  - exact (wct_dec_zero_fiber N).
+  - exact wct_dec_zero_measure.
+Defined.
+
+Theorem wct_dec_nondegenerate (N : nat)
+  : qpos_is_zero (obs_measure (wct_dec_instance (S N)) O) -> Empty.
+Proof.
+  intro H.
+  pose (H' := transport (fun q => qpos_is_zero q)
+                (decreasing_fiber_measure_below_N (S N) O tt) H).
+  exact (transport (fun m : nat => match m with O => Empty | S _ => Unit end)
+           H' tt).
+Defined.
+
+Definition tis_dec_instance (N : nat) : TowerInStable ZGraded_PreStable.
+Proof.
+  refine {| tis_tower :=
+              Build_CategoricalTower ZGraded_PreStable
+                (fun _ => zgo_nonzero 0%int)
+                (fun n => decreasing_fiber_tower_map N n);
+            tis_fiber_triangle := fun n =>
+              ZGraded_cofiber_distinguished 0%int 0%int
+                (decreasing_fiber_tower_map N n) |}.
+  intros n H.
+  exact H.
+Defined.
+
+Theorem tis_dec_nondegenerate (N : nat)
+  : IsIsomorphism
+      (ct_map ZGraded_PreStable
+         (tis_tower ZGraded_PreStable (tis_dec_instance (S N))) O)
+    -> Empty.
+Proof.
+  intro H.
+  apply (shm_false_not_iso 0%int 0%int).
+  exact (transport
+           (fun b => @IsIsomorphism ZGradedCat
+                       (zgo_nonzero 0%int) (zgo_nonzero 0%int) b)
+           (threshold_tower_map_below (S N) O tt) H).
+Defined.
+
 Theorem concrete_example_N_equals_7
   : { M : nat & forall n, nat_lt M n ->
       @IsIsomorphism ZGradedCat (zgo_nonzero 0%int) (zgo_nonzero 0%int)
@@ -5503,12 +5594,7 @@ Proof.
   exact (decreasing_fiber_tower_stabilizes 0%int 7).
 Defined.
 
-(** ** Concrete Functor Example: Polynomial Endofunctor
-
-    We construct a concrete "polynomial" endofunctor on the graded category
-    whose Goodwillie layers have explicitly computable sizes. This provides
-    a non-vacuous witness that the convergence machinery produces genuine
-    stabilization results. *)
+(** ** A polynomial endofunctor on the graded category with computable layer sizes. *)
 
 Definition poly_functor_obj (d : nat) (X : GradedObj) : GradedObj :=
   {| go_dim := nat_mul d (go_dim X) |}.
@@ -5680,32 +5766,9 @@ Proof.
   exact (poly_functor_layers_stabilize 10).
 Defined.
 
-(** ** Summary: Concrete Functor Example
+(** ** The polynomial functor loses one dimension per stage and its layer measures vanish past the base dimension. *)
 
-    We have constructed a concrete polynomial endofunctor on GradedCat with:
-
-    1. poly_approx_dim: The dimension of the n-th polynomial approximation
-       is base_dim - n (saturating at 0).
-
-    2. layer_dim: The n-th Goodwillie layer has dimension 1 if n < base_dim,
-       and 0 otherwise.
-
-    3. layer_measure: The measure of the n-th layer is the integer-valued
-       QPos corresponding to layer_dim.
-
-    4. layer_measure_eventually_zero: For any base_dim, the layer measure
-       becomes zero for all n > base_dim.
-
-    5. poly_functor_layers_stabilize: The layers stabilize (become trivial)
-       after finitely many stages.
-
-    This demonstrates that the weighted tower machinery produces genuine
-    stabilization results for a non-trivial functor model. *)
-
-(** ** Linking to GoodwillieTowerWithLayers
-
-    We now connect the concrete poly_functor to the abstract
-    GoodwillieTowerWithLayers machinery, completing the proof chain. *)
+(** ** Connecting poly_functor to GoodwillieTowerWithLayers. *)
 
 Definition GradedCat_zero_in (X : GradedObj) : GradedMor go_zero X := tt.
 
@@ -5751,9 +5814,7 @@ Proof.
   exact (GradedCat_zero_out_unique X f (GradedCat_zero_out X))^.
 Defined.
 
-(** GradedCat carries exactly one canonical ZeroObject and one canonical
-    WeightMeasure; the names below are aliases for the instances constructed
-    where the category was introduced. *)
+(** Aliases for the canonical zero object and weight measure of GradedCat. *)
 
 Definition GradedCat_ZeroObject : ZeroObject GradedCat := GradedZero.
 
@@ -5873,12 +5934,6 @@ Proof.
     exact tt.
 Defined.
 
-Lemma nat_lt_zero_absurd (n : nat) : nat_lt n O -> Empty.
-Proof.
-  intro Hlt.
-  exact (not_lt_zero_r n (lt_of_nat_lt n O Hlt)).
-Defined.
-
 Lemma P_n_comp (n : nat) (X Y Z : GradedObj) (f : GradedMor X Y) (g : GradedMor Y Z)
   (HX : nat_lt n (go_dim X))
   (HY : nat_lt n (go_dim Y))
@@ -5913,10 +5968,7 @@ Defined.
 
 (** ** Connecting P_n to Goodwillie Tower Framework *)
 
-(** P_n is a functor on the subcategory of objects with dimension > n.
-    For objects with dimension <= n, P_n collapses to zero and composition
-    through such objects is not preserved. We construct the functor using
-    the restricted composition lemma. *)
+(** P_n is functorial on objects of dimension above n through the restricted composition lemma. *)
 
 Definition P_n_Functor_obj (n : nat) : GradedObj -> GradedObj := P_n_obj n.
 
@@ -6085,15 +6137,7 @@ Defined.
 (*  FUNCTORIAL POLYNOMIAL TRUNCATION                                           *)
 (*******************************************************************************)
 
-(** Dimension-capped truncation on singly graded objects fails to be
-    functorial because a composite through a collapsed middle object loses
-    its data.  Levelwise truncation on families does not fail: at each level
-    either all three objects of a composite keep the level or all three lose
-    it.  This part builds the category of Bool-valued level families, its
-    zero object, genuine suspension and loop functors, the guarded
-    truncation endofunctors, and the Goodwillie tower P_n with layers D_n as
-    an instance of GoodwillieTowerWithLayers whose layer maps are honestly
-    detected by the layers. *)
+(** Dimension-capped truncation fails functoriality but levelwise truncation does not; this part builds FamCat, its stable structure, the guarded truncations, and the tower P_n with detected layers D_n. *)
 
 (** *** Boolean level arithmetic *)
 
@@ -6723,11 +6767,7 @@ Definition fam_P_tower_with_fibers `{Funext} (X : FamObj nat)
        (fam_P_tower X)
        (fun n => fam_layer_fiber n X).
 
-(** *** Goodwillie framework instances over ZGraded_PreStable
-
-    The instances formerly carried by GradedPreStable, whose suspension and
-    loop functors are identity placeholders, transport to ZGraded_PreStable,
-    whose suspension and loop are genuine inverse equivalences. *)
+(** *** Goodwillie framework instances over ZGraded_PreStable, whose suspension and loop are genuine inverse equivalences. *)
 
 Definition ZGraded_id_nattrans (F : Functor ZGradedCat ZGradedCat)
   : NaturalTransformation F F.
@@ -6870,14 +6910,7 @@ Defined.
 (*  SEPARATION OF SCHEME ISOMORPHISM FROM A1-EQUIVALENCE                       *)
 (*******************************************************************************)
 
-(** The codiscrete scheme model earlier in this file makes every parallel
-    pair of morphisms equal, so isomorphism and homotopy equivalence
-    collapse.  Here schemes carry genuine set-level carriers and morphisms
-    are functions of carriers.  The affine line acquires actual points, an
-    elementary A1-homotopy relation becomes available through the field
-    multiplication, and the two notions provably separate: the projection
-    from X x A1 is an A1-equivalence for every X, yet it is not a scheme
-    isomorphism over F2 when X is the point. *)
+(** Concrete schemes carry set-level carriers, and the projection from X x A1 is an A1-equivalence yet not a scheme isomorphism over F2 at the point. *)
 
 Record CField : Type := {
   cf_carrier : Type;
@@ -6950,9 +6983,7 @@ Definition cs_product {F : CField} (X Y : CScheme F) : CScheme F
         cs_dim := nat_add (cs_dim F X) (cs_dim F Y);
         cs_sing := nat_add (cs_sing F X) (cs_sing F Y) |}.
 
-(** Audit against the HoTT library: the projections fst and snd are shadowed
-    by the product and sum functors of HoTT.Categories under this import
-    set, so carrier-level projections are defined here. *)
+(** Audit: fst and snd are shadowed by HoTT.Categories under this import set, so carrier projections are local. *)
 
 Definition prod_pr1 {A B : Type} (p : (A * B)%type) : A
   := match p with (a, _) => a end.
@@ -6987,10 +7018,7 @@ Definition IsA1Equiv {F : CField} (X Y : CScheme F) (f : CMor X Y) : Type
        (A1Homotopic X X (fun x => x) (fun x => g (f x)) *
         A1Homotopic Y Y (fun y => y) (fun y => f (g y)))%type }.
 
-(** The projection X x A1 -> X is an A1-equivalence for every X, the point
-    included: the straight-line contraction along the field multiplication
-    provides the homotopy.  This is the honest motivic statement; in the
-    A1-local world nothing distinguishes X x A1 from X. *)
+(** The projection X x A1 -> X is an A1-equivalence for every X by straight-line contraction through the field multiplication. *)
 
 Theorem cproj_A1_equiv {F : CField} (X : CScheme F)
   : IsA1Equiv (cs_product X (cA1 F)) X (cproj X).
@@ -7035,9 +7063,7 @@ Proof.
       reflexivity.
 Defined.
 
-(** *** The separation: over F2 the projection from point x A1 is an
-    A1-equivalence but not a scheme isomorphism, and the point and the
-    affine line are not isomorphic as schemes. *)
+(** *** The separation over F2: the projection from point x A1 is an A1-equivalence but not a scheme isomorphism. *)
 
 Theorem cproj_cpoint_not_scheme_iso `{Funext}
   : @IsIsomorphism (CSch F2)
@@ -7079,11 +7105,7 @@ Defined.
 (*  THE WEIGHT FUNCTIONS w_dim, w_sing, AND w_total                            *)
 (*******************************************************************************)
 
-(** The three weight functions of the weighted tower program: dimension and
-    singularity weights on concrete schemes, and the total weight combining
-    them with the stage weight.  Antitonicity in the stage and Archimedean
-    vanishing are theorems, so a concrete scheme induces a WeightedTower and
-    the bounded-obstruction machinery applies verbatim. *)
+(** The three weight functions on concrete schemes, with stage antitonicity and Archimedean vanishing as theorems, so every concrete scheme induces a WeightedTower. *)
 
 Definition w_dim {F : CField} (X : CScheme F) : QPos
   := {| qpos_num := S O; qpos_denom_pred := cs_dim F X |}.
@@ -7225,16 +7247,7 @@ Defined.
 (*  PROPERTY OF THE POLYNOMIAL TRUNCATION                                      *)
 (*******************************************************************************)
 
-(** Cubes are encoded as guard diagrams: functors from the poset of Boolean
-    predicates on nat, with an m-cube read off through the guards supported
-    below m.  Strong cocartesianness asks every elementary two-face square
-    to be a pushout; cartesianness asks the empty-guard vertex to be the
-    limit of the supported punctured diagram.  A functor is n-excisive when
-    it sends strongly cocartesian diagrams below S n to cartesian ones.  The
-    constant zero functor is n-excisive for every n over any category with a
-    zero object; the identity of the level category is not 0-excisive; and
-    the polynomial truncation P_n is the universal approximation whose
-    target is supported below its guard. *)
+(** Cubes are guard diagrams over the Boolean predicate poset; n-excision sends strongly cocartesian diagrams below S n to cartesian ones, the zero functor is n-excisive, the identity is not 0-excisive, and P_n is the universal guard-supported approximation. *)
 
 Record CommSquare (C : PreCategory) := {
   sq_00 : object C;
@@ -7626,10 +7639,7 @@ Defined.
 (*  SEQUENTIAL LIMITS OF TOWERS                                                *)
 (*******************************************************************************)
 
-(** The limit of a tower is defined by its universal property.  A tower all
-    of whose maps are isomorphisms has its zeroth stage as limit, and every
-    tower that stabilizes at N has a stable tail whose limit is stage N; the
-    tail shift is definitional in the index, so no transport intervenes. *)
+(** Tower limits by universal property: iso towers have stage zero as limit, and stabilized towers have transport-free stable tails with limits. *)
 
 Record TowerCone (C : PreCategory) (T : CategoricalTower C) (W : object C) := {
   tc_component : forall n, morphism C W (ct_stage C T n);
@@ -7843,11 +7853,7 @@ Proof.
                (inv (at_map T n (a (S n)))) (inv (at_map T n (b (S n))))).
 Defined.
 
-(** Kernel description: an element is killed by one minus shift exactly when
-    it is a compatible family, that is a point of the inverse limit.  This
-    identifies the kernel of one_minus_shift with lim, and the Milnor
-    sequence for the tower is the exact sequence built from this kernel, the
-    two products, and the cokernel lim one below. *)
+(** An element is killed by one minus shift exactly when it is a compatible family, identifying the kernel with lim. *)
 
 Definition ab_tower_compatible (a : ab_tower_pi) : Type
   := forall n, at_map T n (a (S n)) = a n.
@@ -7933,9 +7939,7 @@ Proof.
              (nat_lt_S (nat_add n (S N)))).
 Defined.
 
-(** The weighted vanishing theorem for lim one: a tower whose section
-    obstruction measure is weight-bounded and integer-valued acquires
-    sections from some stage onward, and the lim one of the tail vanishes. *)
+(** Weight-bounded integer-valued section obstructions grant sections from some stage on, and the tail lim one vanishes. *)
 
 Theorem weighted_ab_tower_tail_lim1_vanishes `{Funext} (T : AbTower)
   (obs : nat -> QPos) (C : QPos)
@@ -7964,12 +7968,7 @@ End AbelianTowers.
 (*  THE MILNOR SEQUENCE, ASSEMBLED                                             *)
 (*******************************************************************************)
 
-(** lim is the kernel of one minus shift, the four-term sequence through
-    the two products and lim one is exact, the class map is surjective, and
-    the kernel-lim with its projection cone is the categorical limit of the
-    tower in the category of abelian groups, its uniqueness clause being
-    the injectivity of the kernel inclusion.  Vanishing of lim one supplies
-    solutions to the difference equation, the missing existence half. *)
+(** lim is the kernel of one minus shift, the four-term sequence is exact, the class map is surjective, the kernel-lim is the categorical limit with uniqueness by injectivity of the inclusion, and lim-one vanishing supplies the existence half. *)
 
 Section MilnorSequence.
 
@@ -8053,8 +8052,7 @@ Proof.
   exact (milnor_kernel_in_image b (Hvan _)).
 Defined.
 
-(** *** lim is the categorical limit, its uniqueness clause the injectivity
-    of the inclusion *)
+(** *** lim is the categorical limit; uniqueness is the injectivity of the inclusion. *)
 
 Definition AbGrpCat : PreCategory
   := @Build_PreCategory
@@ -8223,11 +8221,7 @@ Record WeightedSpectralSequence : Type := {
         (ab_homology (wss_din r i) (wss_d r i) (wss_dd r i))
 }.
 
-(** The bounded-differential property is derived from the weight bound: a
-    differential measure below C times the stage weight is integer valued,
-    hence eventually zero, and past that page every turn becomes an
-    isomorphism of pages.  The spectral sequence degenerates at a finite
-    page. *)
+(** The bounded-differential property is derived from the weight bound, and the spectral sequence degenerates at a finite page. *)
 
 Theorem wss_degeneration (W : WeightedSpectralSequence)
   (m : nat -> QPos) (C : QPos)
@@ -8342,9 +8336,7 @@ Proof.
     apply int_pred_succ.
 Defined.
 
-(** A concrete weighted spectral sequence over the classical bidegrees: all
-    pages the integers, all differentials zero, degenerating at the first
-    page. *)
+(** A constant integer spectral sequence over classical bidegrees, degenerating at the first page. *)
 
 Definition wss_constant_Z : WeightedSpectralSequence.
 Proof.
@@ -8404,9 +8396,7 @@ Import HoTT.Truncations.Core.
 
 Context `{Funext} {F : CField}.
 
-(** A cover is a jointly surjective family of scheme morphisms; joint
-    surjectivity is the completely decomposed condition of the Nisnevich
-    topology specialized to carrier level. *)
+(** A cover is a jointly surjective family, the completely decomposed Nisnevich condition at carrier level. *)
 
 Record Cover (X : CScheme F) : Type := {
   cov_index : Type;
@@ -8426,10 +8416,7 @@ Record Presheaf : Type := {
       psh_res X Z (fun x => g (f x)) s = psh_res X Y f (psh_res Y Z g s)
 }.
 
-(** A family is compatible when its restrictions agree on every test scheme
-    mapping into two members over the same composite; this is the matching
-    condition phrased through all common refinements, so no fiber product
-    construction is required. *)
+(** Compatibility is the matching condition through all common refinements, requiring no fiber products. *)
 
 Definition CompatibleFamily (P : Presheaf) (X : CScheme F) (U : Cover X)
   (s : forall i, psh_val P (cov_obj X U i))
@@ -8459,9 +8446,7 @@ Proof.
     reflexivity.
 Defined.
 
-(** Representable presheaves satisfy unique gluing along every cover: this
-    is effectivity of surjective families at set level, proven through
-    unique choice into the contractible type of candidate values. *)
+(** Representable presheaves glue uniquely along covers, by unique choice into a contractible type. *)
 
 Theorem representable_is_sheaf (Z : CScheme F) : IsSheaf (representable Z).
 Proof.
@@ -8509,14 +8494,7 @@ End NisnevichSheaves.
 (*  TATE OBJECTS AND THE SLICE FILTRATION ON INT-GRADED LEVEL FAMILIES         *)
 (*******************************************************************************)
 
-(** The slice filtration lives on Int-indexed level families, where the
-    effective cover functor f_q keeps the levels at or above q and the
-    q-slice functor keeps exactly level q.  Both are levelwise guarded
-    truncations, hence genuinely functorial, and the generic universal
-    property of guarded truncation specializes to the slice cover.  Tate
-    objects are the level indicators, the slices are orthogonal on them,
-    and the q-slice of an object is the fiber of the projection from its
-    q-th effective cover to its next one. *)
+(** The slice filtration on Int-indexed families: effective covers keep levels at or above q, slices keep exactly q, both levelwise guarded truncations, with Tate objects as the level indicators. *)
 
 Fixpoint nat_leb_succ_l (n m : nat) {struct n}
   : nat_leb (S n) m = true -> nat_leb n m = true.
@@ -8694,9 +8672,7 @@ Proof.
     reflexivity.
 Defined.
 
-(** The universal property of the effective cover: a map into an object
-    supported at or above q factors uniquely through the q-th cover.  This
-    is the generic guarded truncation universal property at Int. *)
+(** Maps into objects supported at or above q factor uniquely through the q-th effective cover. *)
 
 Theorem slice_cover_universal `{Funext} (q : Int) (X Y : FamObj Int)
   (HY : IsGuardSupported (slice_guard q) Y)
@@ -8759,13 +8735,7 @@ Defined.
 (*  THE WEIGHTED TAYLOR TOWER CONVERGENCE THEOREM                              *)
 (*******************************************************************************)
 
-(** The capstone: for a level family with bounded support, the layer
-    obstruction measure is weight-bounded by the support bound against the
-    stage weight, hence integer-valued and eventually zero; the polynomial
-    tower stabilizes, the canonical approximation maps from the object
-    become isomorphisms, and the stable tail of the tower has the object
-    itself as its limit.  A concrete instance stabilizes at its support
-    bound and provably fails to stabilize below it. *)
+(** The capstone: bounded support makes the layer obstruction weight-bounded, hence eventually zero; the tower stabilizes and the object is the limit of its stable tail. *)
 
 Lemma nat_leb_false_lt (k n : nat) : nat_leb k n = false -> nat_lt n k.
 Proof.
@@ -8791,8 +8761,7 @@ Proof.
     + exact (IHk d E).
 Defined.
 
-(** The obstruction measure of a level family: one when the layer above the
-    stage is occupied, zero otherwise. *)
+(** The obstruction measure: one when the layer above the stage is occupied, zero otherwise. *)
 
 Definition fam_obstruction (X : FamObj nat) (n : nat) : QPos
   := nat_to_qpos (if X (S n) then S O else O).
@@ -8851,8 +8820,7 @@ Proof.
     reflexivity.
 Defined.
 
-(** The approximation map from the object is an isomorphism once the guard
-    clears the support. *)
+(** The approximation map is an isomorphism once the guard clears the support. *)
 
 Theorem fam_unit_iso_of_supported `{Funext} (n : nat) (X : FamObj nat)
   (Hsupp : forall k, nat_lt n k -> X k = false)
@@ -8916,11 +8884,7 @@ Proof.
   exact (stabilized_tower_tail_has_limit (fam_P_tower X) N stab).
 Defined.
 
-(** *** The theorem the title promises: X is the limit of its own tower
-
-    The approximation maps assemble into a cone whose compatibility is the
-    guard-monotone composition law, and for a boundedly supported object the
-    cone is limiting: X itself is the limit of its weighted Taylor tower. *)
+(** *** X is the limit of its own tower: the unit cone is limiting for every boundedly supported object. *)
 
 Definition fam_unit_cone `{Funext} (X : FamObj nat)
   : TowerCone (FamCat nat) (fam_P_tower X) X.
@@ -9089,11 +9053,7 @@ Proof.
   - exact weighted_tower_fails_below_stage.
 Defined.
 
-(** *** The unified sharp threshold
-
-    One tower realizes both halves of the threshold claim: the tower of the
-    family occupying levels up to its support bound stabilizes exactly at
-    that bound and provably fails to stabilize at the predecessor stage. *)
+(** *** One tower stabilizes exactly at its support bound and provably fails at the predecessor stage. *)
 
 Lemma nat_leb_refl (n : nat) : nat_leb n n = true.
 Proof.
@@ -9155,14 +9115,7 @@ Proof.
     + exact (nat_leb_refl (S d)).
 Defined.
 
-(** *** Connectivity and the analyticity criterion
-
-    An object is m-connected when it has no cells at or below level m.  The
-    fibers of the tower are single-level objects, and the weight bound with
-    constant read from a support bound is equivalent to the support bound
-    and to the fibers past that bound being connected above their own
-    stage, that is empty.  This is the in-model analogue of the classical
-    analyticity criterion. *)
+(** *** Connectivity: the weight bound, the support bound, and fiber connectivity growth are equivalent, the in-model analyticity criterion. *)
 
 Definition FamConnGT (X : FamObj nat) (m : nat) : Type
   := forall k, nat_le k m -> X k = false.
@@ -9261,21 +9214,7 @@ Defined.
 (*  THE FRONTIER: A DERIVED WEIGHT BOUND FOR A CONCRETE BLOW-UP                *)
 (*******************************************************************************)
 
-(** The program's conjecture is that genuine motivic obstructions are
-    weight-bounded.  This part tests the conjecture inside the file.  A
-    blow-up model packages a base scheme, a total space, a blowdown, and an
-    obstruction level family supported at the dimension of the exceptional
-    locus, which the geometry forces strictly below the ambient dimension.
-    The weight bound against C times w_total, with the constant C derived
-    from the exceptional dimension and the base's dimension and singularity
-    data, is then a theorem rather than a hypothesis, and the weighted
-    tower of every blow-up model converges.  The blow-up of the affine
-    plane over F2 at the origin realizes the model concretely: over F2 the
-    projective line is the set of nonzero vectors of the plane, the
-    incidence carrier is a genuine set of point-line pairs, the blowdown is
-    provably not a scheme isomorphism, and the derived constant computes to
-    six from ambient dimension two, singularity zero, and exceptional
-    dimension one. *)
+(** A blow-up model derives the weight bound from geometry, obstructions supported at the exceptional dimension with constant derived from dimension and singularity data, realized concretely by the blow-up of the affine plane over F2 with constant six. *)
 
 Lemma qpos_lt_cross_transfer (m a b : QPos)
   (Hcross : nat_mul (qpos_num a) (qpos_denom b)
@@ -9297,10 +9236,7 @@ Proof.
       exact tt.
 Defined.
 
-(** A bound by the stage weight transfers to a bound by the total weight,
-    with the constant multiplied by the dimension and singularity factors of
-    the scheme.  The cross-multiplied equality of the two bounding rationals
-    is the following arithmetic identity. *)
+(** A stage-weight bound transfers to a total-weight bound with the constant multiplied by the dimension and singularity factors. *)
 
 Lemma cross_arith (C0 d s n : nat)
   : nat_mul (nat_mul C0 (S O))
@@ -9390,9 +9326,7 @@ Definition pair_eqb (u v : (Bool * Bool)%type) : Bool
 Definition bool_pair_zero (v : (Bool * Bool)%type) : Bool
   := andb (negb (prod_pr1 v)) (negb (prod_pr2 v)).
 
-(** Over F2 each line through the origin contains exactly one nonzero
-    vector, so the projective line is the type of nonzero vectors and
-    incidence is being zero or being that vector. *)
+(** Over F2 each line through the origin contains one nonzero vector, so the projective line is the type of nonzero vectors. *)
 
 Definition f2_incidence (p : (Bool * Bool)%type) (l : P1F2) : Bool
   := orb (bool_pair_zero p) (pair_eqb p l.1).
@@ -9431,8 +9365,7 @@ Definition exc_pt10 : blowup_carrier
 Definition exc_pt01 : blowup_carrier
   := (((false, false), line01) ; idpath).
 
-(** The blowdown identifies the two exceptional points above the origin, so
-    it is not an isomorphism of schemes. *)
+(** The blowdown identifies the two exceptional points above the origin, so it is not a scheme isomorphism. *)
 
 Theorem blowdown_not_scheme_iso `{Funext}
   : @IsIsomorphism (CSch F2) blowup_A2_F2 cA2_F2 blowdown -> Empty.
@@ -9451,8 +9384,7 @@ Definition blowup_model_A2_F2 : BlowupModel F2
         bm_levels := full_below 1;
         bm_levels_supported := full_below_supported 1 |}.
 
-(** The derived constant computes: exceptional dimension one, ambient
-    dimension two, singularity zero give two times three times one. *)
+(** The derived constant computes to six from exceptional dimension one, ambient dimension two, and singularity zero. *)
 
 Lemma blowup_A2_F2_constant_is_six
   : bm_weight_constant blowup_model_A2_F2 = 6%nat.
@@ -9482,12 +9414,7 @@ Defined.
 (*  THE RATIONAL QUOTIENT: REPRESENTATION-INDEPENDENT POSITIVE RATIONALS       *)
 (*******************************************************************************)
 
-(** Positive rationals as fractions distinguish one half from two quarters
-    as terms.  The cross-multiplication relation is an equivalence, the
-    strict order transfers across it in both arguments, and the quotient
-    QRat carries the descended order and the descended minimal positive
-    structure, so every statement phrased on the quotient holds
-    representation-independently. *)
+(** QRat is QPos quotiented by cross-multiplication, carrying the descended order and minimal positive structure representation-independently. *)
 
 Section RationalQuotient.
 
