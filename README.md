@@ -14,100 +14,101 @@ A Coq formalization of weight-based stabilization for motivic Goodwillie calculu
 
 Classical Goodwillie calculus provides polynomial approximations of homotopy functors under connectivity hypotheses. Direct adaptation to motivic homotopy theory fails because blow-ups, singularities, and non-reduced schemes introduce persistent obstructions.
 
-The **Weighted Motivic Taylor Tower** introduces weight filtrations that suppress high-complexity contributions, forcing obstructions to vanish as the tower progresses.
+The **Weighted Motivic Taylor Tower** introduces weight filtrations that suppress high-complexity contributions, forcing obstructions to vanish as the tower progresses. Everything in `WeightedTower.v` is fully proven: the file contains **no `Admitted`, no `admit`, no `Abort`, and no axioms of its own**, and the compiled object passes `coqchk`.
 
 ---
 
 ## Weight Functions
 
-Three weight functions penalize geometric complexity:
+The three weight functions are defined on concrete schemes (carriers with dimension and singularity data) and are theorem-backed:
 
-| Weight | Definition | Effect |
-|--------|------------|--------|
-| w_dim(X) | 1/(1 + dim(X)) | Higher-dimensional varieties receive smaller weights |
-| w_sing(X) | 1/(1 + sing(X)) | More singular varieties receive smaller weights |
-| w_stage(n) | 1/(n + 1) | Later tower stages impose stricter thresholds |
+| Weight | Definition | Backing theorems |
+|--------|------------|------------------|
+| `w_dim X` | 1/(1 + dim X) | defined on `CScheme`, positive by construction |
+| `w_sing X` | 1/(1 + sing X) | defined on `CScheme`, positive by construction |
+| `w_stage n` | 1/(n + 1) | `w_stage_antitonicity`, `w_stage_archimedean`, `w_stage_limit_zero` |
 
-Combined: `w_total(X, n) = w_dim(X) · w_sing(X) · w_stage(n)`
+Combined: `w_total X n = w_dim X · w_sing X · w_stage n`, with `w_total_antitone` (strictly decreasing in the stage), `w_total_never_zero`, and `w_total_limit_zero` (Archimedean vanishing). A concrete scheme therefore induces a `WeightedTower` (`w_total_tower`), and the bounded-obstruction machinery applies verbatim (`w_total_bounded_obstructions_vanish`).
 
 ### Convergence Mechanism
 
-1. **Proper weighted tower**: Thresholds decrease monotonically (ω(n+1) < ω(n))
-2. **Bounded obstructions**: obs(n) < C · ω(n) for some constant C
-3. **Archimedean vanishing**: Since ω(n) → 0, obstructions eventually vanish
+1. **Proper weighted tower**: thresholds decrease monotonically.
+2. **Bounded obstructions**: `obs n < C · ω(n)` for some constant `C`.
+3. **Archimedean vanishing**: since `ω(n) → 0`, the obstruction measure tends to zero (`bounded_obstructions_limit_zero`), and integer-valued measures are then eventually zero (`integer_LimitZero_implies_EventuallyZero`).
 
-**Main Theorem:** For a proper weighted tower with bounded obstructions:
-```
-lim_{n→∞} P_n^w F(X) ≃ F(X)
-```
+**Capstone theorem** (`weighted_taylor_tower_convergence`, `weighted_taylor_tower_limit`): for a level family with bounded support, the polynomial tower stabilizes, the canonical approximation maps become isomorphisms, and the stable tail of the tower has the object itself as its limit. The instance `weighted_tower_genuine_threshold_example` stabilizes at its support bound and provably fails to stabilize below it.
 
 ---
 
 ## Formalization Contents
 
-The `WeightedTower.v` file (1810 lines) formalizes:
+`WeightedTower.v` is a single self-contained file over the Coq-HoTT library.
 
-### Motivic Infrastructure
-- Base fields, schemes (affine, projective, quasi-projective, singular)
-- Nisnevich topology and sheaves
-- Motivic spectra, Tate objects, slice filtration
-- Scheme-to-motivic-space conversion with A¹-invariance
+### Arithmetic and convergence core
+Positive rationals `QPos` from scratch; the sharp distinction `LimitZero` versus `EventuallyZero` with `w_stage` as a proven separating example; the discreteness bridge `discrete_LimitZero_implies_EventuallyZero`; abstract weighted towers, bounded obstructions, and stabilization (`weighted_tower_stabilizes`, `goodwillie_tower_stabilizes`). Natural-number arithmetic is inherited from `HoTT.Spaces.Nat.Core`.
 
-### Stable Categories
-- Full axiomatization: composition laws, associativity, identity
-- Zero objects with uniqueness
-- Suspension Σ and loop Ω functors with functoriality
-- η/ε adjunction with triangle identities
-- Distinguished triangles with zero-composition axioms
-- Fiber sequences
+### Stable category infrastructure
+Zero objects, zero morphisms, distinguished triangles, triangle rotation, fiber data, categorical towers, pre-stable and proper stable categories, and the duality principle via opposite categories.
 
-### N-Excisive Functors
-- Strongly cocartesian cubes
-- n-excisive predicate
-- Reduced functors preserving zero
-- Goodwillie tower: P_n approximations and D_n homogeneous layers
-- Layer decay from n-excisiveness
+### The codiscrete scheme model, made explicit
+The original scheme model has singleton morphism data; the file now proves this collapse rather than hinting at it: `all_scheme_morphisms_equal`, `section_projection_compose_all` (no positivity hypothesis), `point_scheme_A1_invariant`, and `all_schemes_A1_invariant`.
 
-### Homotopy Limits
-- Sequential diagrams and towers
-- Homotopy limit with universal property
-- Milnor sequence for lim¹
-- Stabilized tower convergence
+### Graded models with genuine thresholds
+The Bool-valued graded and Z-graded categories, the proper stable structure on the latter, cofiber triangles, and the unified **threshold tower construction** (`threshold_tower_map` with its below/at/above, integrality, minimal-positivity, limit-zero, and eventually-zero suite), of which the `eventually_iso_*` and `decreasing_fiber_*` families are instances.
 
-### Spectral Sequences
-- Bigraded groups with differentials
-- d² = 0 axiom
-- Weighted spectral sequences
-- Bounded differential property
-- Weight filtrations
+### Level families and the functorial polynomial tower
+`FamCat`: Bool-valued level families with genuine suspension and loop (`FamPreStable`), guarded truncation endofunctors, and guard-change natural transformations. The tower `P_n` and layers `D_n` are genuine reduced endofunctors; `FamGoodwillieTower` instantiates `GoodwillieTowerWithLayers`, with layers exhibited as fibers of the tower maps (`fam_layer_fiber`, `fam_P_tower_with_fibers`) and layer vanishing detecting isomorphisms (`fam_layer_zero_implies_iso`).
 
-### Convergence Theory
-- Positive rationals with Archimedean property
-- Weight antitonicity proofs
-- Obstruction vanishing theorems
-- Tower stabilization
-- Complete convergence: obstructions eventually zero
+### The completed graded motivic stable homotopy category
+`ShiftCat`, the proper stable category generated by any shift system on a payload type, instantiated at graded motivic spectra with `gms_susp`/`gms_loop` as mutually inverse functors: `MotivicSH_ProperStable`. Non-isomorphisms exist (`MotivicSH_has_non_iso_morphisms`), cofiber triangles are distinguished, and the SH-level stabilization theorems are restated with load-bearing hypotheses (`motivic_sh_main_convergence`, `MotivicSH_genuine_threshold`).
+
+### Concrete schemes and A1-homotopy
+`CField` (with `F2` as witness), schemes as set-level carriers with dimension and singularity data, elementary A1-homotopies through the field multiplication, and the separation theorem `scheme_iso_and_A1_equiv_separate`: the projection from `X × A¹` is an A1-equivalence for every `X` (`cproj_A1_equiv`, `cA1_contractible_to_point`) yet is not a scheme isomorphism over `F2` at the point (`cproj_cpoint_not_scheme_iso`, `cpoint_not_iso_cA1`).
+
+### Cubes and the n-excisive predicate
+Commutative squares with pushout and pullback universal properties; cubes as guard diagrams over the Boolean predicate poset; strongly cocartesian and cartesian conditions below a support bound; the `IsNExcisive` predicate. The constant zero functor is n-excisive for every n over any category with a zero object (`zero_endofunctor_n_excisive`); the identity of the level category is not 0-excisive (`fam_id_not_0_excisive`); and `P_n` is the universal approximation with guard-supported target (`fam_trunc_universal`, `FamP_universal`).
+
+### Sequential limits and the Milnor sequence
+Tower cones and the limit universal property (`IsTowerLimit`); towers stabilizing at zero have their zeroth stage as limit (`stab_tower_limit`); stabilizing towers have transport-free stable tails with limits (`stabilized_tower_tail_has_limit`). For towers of abelian groups: the product group, the difference-of-shift homomorphism, the kernel description of lim (`ab_tower_lim_spec`), lim¹ as a cokernel, exactness of the image (`ab_tower_lim1_image_zero`), vanishing of lim¹ under sections (`ab_tower_lim1_trivial_of_sections`), and the weighted tail-vanishing theorem (`weighted_ab_tower_tail_lim1_vanishes`).
+
+### Weighted spectral sequences
+Homology of composable differentials via kernels and cokernels (`ab_homology`), the `WeightedSpectralSequence` record with `d ∘ d = 0` and turn isomorphisms, and the degeneration theorem `wss_degeneration`, in which the bounded-differential property is **derived** from the weight bound rather than assumed. Classical `Int × Int` bidegree bookkeeping is proven (`wss_classical_tgt_src`), a concrete instance is provided (`wss_constant_Z`), and weight filtrations stabilize under weight-bounded jump measures (`weight_filtration_stabilizes`).
+
+### Nisnevich-style covers and sheaves
+Jointly surjective covers, presheaves, matching families through all common refinements, the sheaf condition as unique gluing, and the theorem that representable presheaves are sheaves (`representable_is_sheaf`), proven through unique choice.
+
+### Tate objects and the slice filtration
+On Int-graded level families: effective cover functors `SliceCover`, slice functors `SliceLayer`, Tate objects as level indicators with `slice_layer_tate` and `slice_orthogonal`, the universal property of the effective cover (`slice_cover_universal`), the slice as the fiber of the projection between adjacent covers (`slice_fiber`), and slice vanishing detecting isomorphisms (`slice_zero_implies_iso`).
 
 ---
 
-## Admitted Results
+## Proof Status
 
-| Result | Reason |
-|--------|--------|
-| `filtration_to_bigraded` | Zero element construction from filtration levels |
-| `measure_eventually_zero_from_arbitrarily_small` | Discrete Archimedean bridge requiring additional structure |
-
-All other theorems fully proven from HoTT axioms.
+- Zero `Admitted`, zero `admit`, zero `Abort`, zero file-level axioms.
+- `coqchk` passes on the compiled object; the assumption context is exactly the Coq-HoTT library's standard basis.
+- The arithmetic core, the codiscrete-model theorems, and the completed motivic stable category `MotivicSH` are **closed under the global context** — they use no axioms at all.
+- Theorems comparing families of morphisms use `Funext`; the lim¹, spectral sequence, and sheaf layers additionally use the library's truncation and quotient higher inductive types.
 
 ---
 
 ## Building
 
-Requires [Coq-HoTT](https://github.com/HoTT/Coq-HoTT) (Coq 8.19+).
+Requires [Coq-HoTT](https://github.com/HoTT/Coq-HoTT) (Rocq 9.0 or later).
+
+With Coq-HoTT installed through opam (package `coq-hott`):
 
 ```bash
-coqc -Q /path/to/HoTT HoTT -noinit WeightedTower.v
+coqc -noinit -indices-matter -native-compiler no WeightedTower.v
+coqchk -silent -o WeightedTower
 ```
+
+Against a source checkout of Coq-HoTT:
+
+```bash
+coqc -R /path/to/HoTT/theories HoTT -noinit -indices-matter -native-compiler no WeightedTower.v
+```
+
+Continuous integration compiles the file and runs `coqchk` on every push (`.github/workflows/ci.yml`).
 
 ---
 
@@ -117,4 +118,5 @@ coqc -Q /path/to/HoTT HoTT -noinit WeightedTower.v
 - F. Morel & V. Voevodsky, *A¹-homotopy theory of schemes* (1999)
 - M. Bondarko, *Weight structures vs. t-structures* (2010)
 - D.-C. Cisinski & F. Déglise, *Triangulated Categories of Mixed Motives* (2019)
+- V. Voevodsky, *Open problems in the motivic stable homotopy theory* (2002)
 - HoTT Book, *Homotopy Type Theory: Univalent Foundations* (2013)
