@@ -310,6 +310,18 @@ Proof.
   exact (not_lt_zero_r n (lt_of_nat_lt n O Hlt)).
 Defined.
 
+Lemma nat_le_of_lt_S (d n : nat) : nat_lt d (S n) -> nat_le d n.
+Proof.
+  revert n.
+  induction d.
+  - intros n _.
+    exact tt.
+  - intros n Hlt.
+    destruct n.
+    + destruct d; destruct Hlt.
+    + exact (IHd n Hlt).
+Defined.
+
 Lemma nat_lt_or_eq_or_gt
   : forall n m, (nat_lt n m) + (n = m) + (nat_lt m n).
 Proof.
@@ -2454,6 +2466,47 @@ Record ProperStableCategory := {
     (morphism_of (ps_loop psc_pre) (components_of (ps_epsilon psc_pre) E) o
      components_of (ps_eta psc_pre) (object_of (ps_loop psc_pre) E) = 1)%morphism
 }.
+
+(** The triangle identities make suspension left adjoint to loops at the level of hom sets. *)
+
+Definition stable_susp_loop_adjunction (S : ProperStableCategory)
+  (X Y : object (psc_pre S))
+  : morphism (psc_pre S) (object_of (ps_susp (psc_pre S)) X) Y
+    <~> morphism (psc_pre S) X (object_of (ps_loop (psc_pre S)) Y).
+Proof.
+  refine (equiv_adjointify
+            (fun f => (morphism_of (ps_loop (psc_pre S)) f
+                       o components_of (ps_eta (psc_pre S)) X)%morphism)
+            (fun g => (components_of (ps_epsilon (psc_pre S)) Y
+                       o morphism_of (ps_susp (psc_pre S)) g)%morphism)
+            _ _).
+  - intro g.
+    refine (ap (fun h => (h o components_of (ps_eta (psc_pre S)) X)%morphism)
+             (composition_of (ps_loop (psc_pre S)) _ _ _
+                (morphism_of (ps_susp (psc_pre S)) g)
+                (components_of (ps_epsilon (psc_pre S)) Y)) @ _).
+    refine (associativity _ _ _ _ _ _ _ _ @ _).
+    refine (ap (fun h => (morphism_of (ps_loop (psc_pre S))
+                            (components_of (ps_epsilon (psc_pre S)) Y)
+                          o h)%morphism)
+             (commutes (ps_eta (psc_pre S)) _ _ g)^ @ _).
+    refine ((associativity _ _ _ _ _ _ _ _)^ @ _).
+    refine (ap (fun h => (h o g)%morphism) (psc_triangle_2 S Y) @ _).
+    apply left_identity.
+  - intro f.
+    refine (ap (fun h => (components_of (ps_epsilon (psc_pre S)) Y
+                          o h)%morphism)
+             (composition_of (ps_susp (psc_pre S)) _ _ _
+                (components_of (ps_eta (psc_pre S)) X)
+                (morphism_of (ps_loop (psc_pre S)) f)) @ _).
+    refine ((associativity _ _ _ _ _ _ _ _)^ @ _).
+    refine (ap (fun h => (h o morphism_of (ps_susp (psc_pre S))
+                                (components_of (ps_eta (psc_pre S)) X))%morphism)
+             (commutes (ps_epsilon (psc_pre S)) _ _ f) @ _).
+    refine (associativity _ _ _ _ _ _ _ _ @ _).
+    refine (ap (fun h => (f o h)%morphism) (psc_triangle_1 S X) @ _).
+    apply right_identity.
+Defined.
 
 Definition SH_ProperStable `{Funext} (k : BaseField)
   : ProperStableCategory.
@@ -6767,6 +6820,347 @@ Definition fam_P_tower_with_fibers `{Funext} (X : FamObj nat)
        (fam_P_tower X)
        (fun n => fam_layer_fiber n X).
 
+(** *** The universal property of the fiber: unique factorization through the inclusion, canonicity of the fiber object, and the failure of the degenerate zero fiber. *)
+
+Record FiberUniversal {C : PreCategory} (Z : ZeroObject C)
+  {X Y : object C} (f : morphism C X Y) (fd : FiberData Z f) := {
+  fu_factor : forall (V : object C) (t : morphism C V X),
+    (f o t)%morphism = zero_morphism Z V Y ->
+    Contr { s : morphism C V (fd_fiber Z f fd) &
+            (fd_inclusion Z f fd o s)%morphism = t }
+}.
+
+Definition lev_fiber_factor (b1 bD x w : Bool)
+  (t : LevHom w (truncAt b1 x))
+  : LevHom w (truncAt bD x)
+  := match b1 return LevHom w (truncAt b1 x) -> LevHom w (truncAt bD x) with
+     | true => fun t0 =>
+         match bD return LevHom w (truncAt bD x) with
+         | true => t0
+         | false => lev_to_zero w
+         end
+     | false => fun _ =>
+         match bD return LevHom w (truncAt bD x) with
+         | true => lev_zero_mor w x
+         | false => lev_to_zero w
+         end
+     end t.
+
+Lemma lev_fiber_factor_commutes (b1 b0 bD x w : Bool)
+  (HD : bD = andb b1 (negb b0))
+  (t : LevHom w (truncAt b1 x))
+  (u : LevHom w false) (v : LevHom false (truncAt b0 x))
+  (Hz : lev_comp w (truncAt b1 x) (truncAt b0 x)
+          (lev_change b1 b0 x) t
+        = lev_comp w false (truncAt b0 x) v u)
+  : lev_comp w (truncAt bD x) (truncAt b1 x)
+      (lev_change bD b1 x) (lev_fiber_factor b1 bD x w t)
+    = t.
+Proof.
+  destruct b1.
+  - destruct b0.
+    + destruct bD.
+      * exact (Empty_rec _ (false_ne_true HD^)).
+      * destruct w.
+        { destruct x.
+          - exact (((andb_true_r t)^ @ Hz)^).
+          - destruct t; reflexivity. }
+        { destruct t; reflexivity. }
+    + destruct bD.
+      * destruct w.
+        { destruct x.
+          - exact (andb_true_r t).
+          - destruct t; reflexivity. }
+        { destruct t; reflexivity. }
+      * exact (Empty_rec _ (false_ne_true HD)).
+  - destruct bD.
+    + exact (Empty_rec _ (false_ne_true HD^)).
+    + destruct w; destruct t; reflexivity.
+Defined.
+
+Lemma lev_fiber_factor_unique (b1 b0 bD x w : Bool)
+  (HD : bD = andb b1 (negb b0))
+  (t : LevHom w (truncAt b1 x))
+  (s : LevHom w (truncAt bD x))
+  (Hs : lev_comp w (truncAt bD x) (truncAt b1 x)
+          (lev_change bD b1 x) s = t)
+  : s = lev_fiber_factor b1 bD x w t.
+Proof.
+  destruct bD.
+  - destruct b1.
+    + destruct w.
+      * destruct x.
+        { exact ((andb_true_r s)^ @ Hs). }
+        { destruct s, t; reflexivity. }
+      * destruct s, t; reflexivity.
+    + exact (Empty_rec _ (false_ne_true HD^)).
+  - destruct b1; destruct w; destruct s; reflexivity.
+Defined.
+
+Lemma nat_eqb_window (k n : nat)
+  : nat_eqb k (S n) = andb (nat_leb k (S n)) (negb (nat_leb k n)).
+Proof.
+  revert n.
+  induction k.
+  - intro n.
+    reflexivity.
+  - intro n.
+    destruct n.
+    + destruct k; reflexivity.
+    + exact (IHk n).
+Defined.
+
+Theorem fam_fiber_universal `{Funext} (n : nat) (X V : FamObj nat)
+  (t : FamHom V (fam_trunc (fam_guard_P (S n)) X))
+  (Hz : fam_comp V (fam_trunc (fam_guard_P (S n)) X)
+          (fam_trunc (fam_guard_P n) X)
+          (fam_change (fam_guard_P (S n)) (fam_guard_P n) X) t
+        = zero_morphism (FamZero nat) V (fam_trunc (fam_guard_P n) X))
+  : Contr { s : FamHom V (fam_trunc (fam_guard_D n) X) &
+            fam_comp V (fam_trunc (fam_guard_D n) X)
+              (fam_trunc (fam_guard_P (S n)) X)
+              (fam_change (fam_guard_D n) (fam_guard_P (S n)) X) s = t }.
+Proof.
+  refine (Build_Contr _
+            ((fun k => lev_fiber_factor (nat_leb k (S n)) (nat_eqb k (S n))
+                         (X k) (V k) (t k)) ;
+             path_forall _ _ (fun k =>
+               lev_fiber_factor_commutes (nat_leb k (S n)) (nat_leb k n)
+                 (nat_eqb k (S n)) (X k) (V k)
+                 (nat_eqb_window k n)
+                 (t k) _ _ (apD10 Hz k)))
+            _).
+  intros [s e].
+  apply path_sigma_hprop.
+  apply path_forall; intro k.
+  exact (lev_fiber_factor_unique (nat_leb k (S n)) (nat_leb k n)
+           (nat_eqb k (S n)) (X k) (V k)
+           (nat_eqb_window k n) (t k) (s k) (apD10 e k))^.
+Defined.
+
+Theorem fam_layer_fiber_universal `{Funext} (n : nat) (X : FamObj nat)
+  : FiberUniversal (FamZero nat)
+      (fam_change (fam_guard_P (S n)) (fam_guard_P n) X)
+      (fam_layer_fiber n X).
+Proof.
+  constructor.
+  intros V t Hz.
+  exact (fam_fiber_universal n X V t Hz).
+Defined.
+
+Theorem fiber_universal_canonical {C : PreCategory} (Z : ZeroObject C)
+  {X Y : object C} (f : morphism C X Y)
+  (fd1 fd2 : FiberData Z f)
+  (U1 : FiberUniversal Z f fd1) (U2 : FiberUniversal Z f fd2)
+  : { i : morphism C (fd_fiber Z f fd1) (fd_fiber Z f fd2) &
+      ((IsIsomorphism i) *
+       ((fd_inclusion Z f fd2 o i)%morphism = fd_inclusion Z f fd1))%type }.
+Proof.
+  pose (c12 := fu_factor Z f fd2 U2 _ (fd_inclusion Z f fd1)
+                 (fd_exactness Z f fd1)).
+  pose (c21 := fu_factor Z f fd1 U1 _ (fd_inclusion Z f fd2)
+                 (fd_exactness Z f fd2)).
+  pose (i := (@center _ c12).1).
+  pose (j := (@center _ c21).1).
+  pose (ei := (@center _ c12).2).
+  pose (ej := (@center _ c21).2).
+  exists i.
+  refine (_, ei).
+  exists j.
+  split.
+  - pose (cself := fu_factor Z f fd1 U1 _ (fd_inclusion Z f fd1)
+                     (fd_exactness Z f fd1)).
+    pose (p1 := ((j o i)%morphism ;
+                 (associativity C _ _ _ _ i j (fd_inclusion Z f fd1))^
+                   @ ap (fun h => (h o i)%morphism) ej
+                   @ ei)
+                : { s : _ & (fd_inclusion Z f fd1 o s)%morphism
+                            = fd_inclusion Z f fd1 }).
+    pose (p2 := (1%morphism ; right_identity _ _ _ _)
+                : { s : _ & (fd_inclusion Z f fd1 o s)%morphism
+                            = fd_inclusion Z f fd1 }).
+    exact (ap (fun z => z.1) (@path_contr _ cself p1 p2)).
+  - pose (cself := fu_factor Z f fd2 U2 _ (fd_inclusion Z f fd2)
+                     (fd_exactness Z f fd2)).
+    pose (p1 := ((i o j)%morphism ;
+                 (associativity C _ _ _ _ j i (fd_inclusion Z f fd2))^
+                   @ ap (fun h => (h o j)%morphism) ei
+                   @ ej)
+                : { s : _ & (fd_inclusion Z f fd2 o s)%morphism
+                            = fd_inclusion Z f fd2 }).
+    pose (p2 := (1%morphism ; right_identity _ _ _ _)
+                : { s : _ & (fd_inclusion Z f fd2 o s)%morphism
+                            = fd_inclusion Z f fd2 }).
+    exact (ap (fun z => z.1) (@path_contr _ cself p1 p2)).
+Defined.
+
+(** *** Genuine mapping cones for arbitrary maps of level families: the cone kills the map and is the universal such target. *)
+
+Definition lev_cone (x y : Bool) (f : LevHom x y) : Bool
+  := match x return LevHom x y -> Bool with
+     | true => match y return LevHom true y -> Bool with
+               | true => fun f0 => negb f0
+               | false => fun _ => false
+               end
+     | false => fun _ => y
+     end f.
+
+Definition lev_cone_in (x y : Bool) (f : LevHom x y)
+  : LevHom y (lev_cone x y f).
+Proof.
+  destruct x.
+  - destruct y.
+    + destruct f.
+      * exact tt.
+      * exact true.
+    + exact tt.
+  - exact (lev_id y).
+Defined.
+
+Lemma lev_cone_in_kills (x y : Bool) (f : LevHom x y)
+  (u : LevHom x false) (v : LevHom false (lev_cone x y f))
+  : lev_comp x y (lev_cone x y f) (lev_cone_in x y f) f
+    = lev_comp x false (lev_cone x y f) v u.
+Proof.
+  destruct x.
+  - destruct y.
+    + destruct f; reflexivity.
+    + reflexivity.
+  - reflexivity.
+Defined.
+
+Definition lev_cone_factor (x y : Bool) (f : LevHom x y) (z : Bool)
+  (g : LevHom y z)
+  : LevHom (lev_cone x y f) z.
+Proof.
+  destruct x.
+  - destruct y.
+    + destruct f.
+      * exact tt.
+      * exact g.
+    + exact tt.
+  - exact g.
+Defined.
+
+Lemma lev_cone_factor_commutes (x y z : Bool) (f : LevHom x y)
+  (g : LevHom y z)
+  (u : LevHom x false) (v : LevHom false z)
+  (Hz : lev_comp x y z g f = lev_comp x false z v u)
+  : lev_comp y (lev_cone x y f) z
+      (lev_cone_factor x y f z g) (lev_cone_in x y f)
+    = g.
+Proof.
+  destruct x.
+  - destruct y.
+    + destruct f.
+      * destruct z.
+        { exact Hz^. }
+        { destruct g; reflexivity. }
+      * destruct z.
+        { reflexivity. }
+        { destruct g; reflexivity. }
+    + destruct g; reflexivity.
+  - destruct y.
+    + destruct z.
+      * reflexivity.
+      * destruct g; reflexivity.
+    + destruct g; reflexivity.
+Defined.
+
+Lemma lev_cone_factor_unique (x y z : Bool) (f : LevHom x y)
+  (g : LevHom y z)
+  (h : LevHom (lev_cone x y f) z)
+  (Hh : lev_comp y (lev_cone x y f) z h (lev_cone_in x y f) = g)
+  : h = lev_cone_factor x y f z g.
+Proof.
+  destruct x.
+  - destruct y.
+    + destruct f.
+      * destruct h; reflexivity.
+      * destruct z.
+        { exact Hh. }
+        { destruct h, g; reflexivity. }
+    + destruct h; reflexivity.
+  - destruct y.
+    + destruct z.
+      * exact Hh.
+      * destruct h, g; reflexivity.
+    + destruct h, g; reflexivity.
+Defined.
+
+Definition fam_cone `{Funext} {X Y : FamObj nat} (f : FamHom X Y)
+  : FamObj nat
+  := fun k => lev_cone (X k) (Y k) (f k).
+
+Definition fam_cone_in `{Funext} {X Y : FamObj nat} (f : FamHom X Y)
+  : FamHom Y (fam_cone f)
+  := fun k => lev_cone_in (X k) (Y k) (f k).
+
+Theorem fam_cone_in_kills `{Funext} {X Y : FamObj nat} (f : FamHom X Y)
+  : fam_comp X Y (fam_cone f) (fam_cone_in f) f
+    = zero_morphism (FamZero nat) X (fam_cone f).
+Proof.
+  apply path_forall; intro k.
+  exact (lev_cone_in_kills (X k) (Y k) (f k) _ _).
+Defined.
+
+Theorem fam_cone_universal `{Funext} {X Y : FamObj nat} (f : FamHom X Y)
+  (Z : FamObj nat) (g : FamHom Y Z)
+  (Hg : fam_comp X Y Z g f = zero_morphism (FamZero nat) X Z)
+  : Contr { h : FamHom (fam_cone f) Z &
+            fam_comp Y (fam_cone f) Z h (fam_cone_in f) = g }.
+Proof.
+  refine (Build_Contr _
+            ((fun k => lev_cone_factor (X k) (Y k) (f k) (Z k) (g k)) ;
+             path_forall _ _ (fun k =>
+               lev_cone_factor_commutes (X k) (Y k) (Z k) (f k) (g k)
+                 _ _ (apD10 Hg k)))
+            _).
+  intros [h e].
+  apply path_sigma_hprop.
+  apply path_forall; intro k.
+  exact (lev_cone_factor_unique (X k) (Y k) (Z k) (f k) (g k)
+           (h k) (apD10 e k))^.
+Defined.
+
+Theorem fam_cone_of_from_zero `{Funext} (Y : FamObj nat)
+  : fam_cone (@center _ (contr_famhom_from_zero Y)) = Y.
+Proof.
+  apply path_forall; intro k.
+  reflexivity.
+Defined.
+
+Theorem fam_cone_of_id `{Funext} (X : FamObj nat)
+  : fam_cone (fam_id X) = (fam_zero : FamObj nat).
+Proof.
+  apply path_forall; intro k.
+  unfold fam_cone, fam_id, fam_zero.
+  destruct (X k); reflexivity.
+Defined.
+
+Theorem degenerate_fiber_not_universal `{Funext}
+  : { X : FamObj nat & { fd : FiberData (FamZero nat)
+        (fam_change (fam_guard_P 1) (fam_guard_P O) X) &
+      FiberUniversal (FamZero nat)
+        (fam_change (fam_guard_P 1) (fam_guard_P O) X) fd -> Empty }}.
+Proof.
+  exists (fun k => nat_leb k 1).
+  refine (@Build_FiberData (FamCat nat) (FamZero nat)
+            _ _ (fam_change (fam_guard_P 1) (fam_guard_P O)
+                   (fun k => nat_leb k 1))
+            (fam_zero : FamObj nat)
+            (@center _ (contr_famhom_from_zero
+                          (fam_trunc (fam_guard_P 1) (fun k => nat_leb k 1))))
+            (@path_contr _ (contr_famhom_from_zero _) _ _) ; _).
+  intro U.
+  pose (c := fu_factor _ _ _ U _
+               (fam_change (fam_guard_D O) (fam_guard_P 1)
+                  (fun k => nat_leb k 1))
+               (fd_exactness _ _ (fam_layer_fiber O (fun k => nat_leb k 1)))).
+  pose (e := (@center _ c).2).
+  exact (false_ne_true (apD10 e 1%nat)).
+Defined.
+
 (** *** Goodwillie framework instances over ZGraded_PreStable, whose suspension and loop are genuine inverse equivalences. *)
 
 Definition ZGraded_id_nattrans (F : Functor ZGradedCat ZGradedCat)
@@ -6845,6 +7239,16 @@ Proof.
   exact (ShiftCat_has_non_iso (gms_nonzero k)).
 Defined.
 
+(** The suspension-loop adjunction instantiated on the motivic stable homotopy category. *)
+
+Definition MotivicSH_hom_susp_loop (k : BaseField)
+  (E F : object (MotivicSH k))
+  : morphism (MotivicSH k)
+      (object_of (ps_susp (MotivicSH_ProperStable k)) E) F
+    <~> morphism (MotivicSH k) E
+      (object_of (ps_loop (MotivicSH_ProperStable k)) F)
+  := stable_susp_loop_adjunction (MotivicSH_ProperStable k) E F.
+
 Theorem MotivicSH_zero_measure_implies_zero (k : BaseField)
   (E : ShiftObj (GradedMotivicSpectrum k))
   : qpos_is_zero (sh_dim_measure E) -> E = sh_zero.
@@ -6905,6 +7309,379 @@ Proof.
   exact (MotivicSH_weight_bounded_stabilizes k E C maps HC Hbounded).
 Defined.
 
+(** *** The bounded-family model: goodwillie_tower_stabilizes instantiated with every hypothesis discharged and the zero object decidable. *)
+
+Section BoundedFamilies.
+
+Context `{Funext} (W : nat).
+
+Definition BFamObj : Type
+  := { X : FamObj nat & forall k, nat_lt W k -> X k = false }.
+
+Local Instance ishprop_bounded_support (X : FamObj nat)
+  : IsHProp (forall k, nat_lt W k -> X k = false).
+Proof.
+  exact _.
+Defined.
+
+Definition BFamCat : PreCategory
+  := @Build_PreCategory
+       BFamObj
+       (fun X Y => FamHom X.1 Y.1)
+       (fun X => fam_id X.1)
+       (fun X Y Z g f => fam_comp X.1 Y.1 Z.1 g f)
+       (fun s d d' d'' m1 m2 m3 =>
+          associativity (FamCat nat) s.1 d.1 d'.1 d''.1 m1 m2 m3)
+       (fun a b f => left_identity (FamCat nat) a.1 b.1 f)
+       (fun a b f => right_identity (FamCat nat) a.1 b.1 f)
+       (fun s d => @trunc_morphism (FamCat nat) s.1 d.1).
+
+Definition bfam_zero : BFamObj
+  := ((fam_zero : FamObj nat) ; fun k _ => idpath).
+
+Definition BFamZero : ZeroObject BFamCat
+  := Build_ZeroObject BFamCat bfam_zero
+       (fun Y => contr_famhom_from_zero Y.1)
+       (fun X => contr_famhom_to_zero X.1).
+
+Definition bfam_id_eta
+  : NaturalTransformation (1%functor : Functor BFamCat BFamCat)
+      (1 o 1)%functor.
+Proof.
+  refine (Build_NaturalTransformation 1%functor (1 o 1)%functor
+            (fun X : object BFamCat => fam_id X.1) _).
+  intros X Y f.
+  exact (left_identity BFamCat X Y f @ (right_identity BFamCat X Y f)^).
+Defined.
+
+Definition bfam_id_epsilon
+  : NaturalTransformation ((1 o 1)%functor : Functor BFamCat BFamCat)
+      1%functor.
+Proof.
+  refine (Build_NaturalTransformation (1 o 1)%functor 1%functor
+            (fun X : object BFamCat => fam_id X.1) _).
+  intros X Y f.
+  exact (left_identity BFamCat X Y f @ (right_identity BFamCat X Y f)^).
+Defined.
+
+Definition BFamPreStable : PreStableCategory
+  := Build_PreStableCategory BFamCat BFamZero 1%functor 1%functor
+       bfam_id_eta bfam_id_epsilon.
+
+Definition bfam_lift (G : Functor (FamCat nat) (FamCat nat))
+  (HG : forall (X : BFamObj) (k : nat), nat_lt W k ->
+        object_of G X.1 k = false)
+  : Functor BFamCat BFamCat.
+Proof.
+  refine (Build_Functor BFamCat BFamCat
+            (fun X => (object_of G X.1 ; HG X))
+            (fun X Y f => morphism_of G f)
+            _ _).
+  - intros X Y Z f g.
+    exact (composition_of G X.1 Y.1 Z.1 f g).
+  - intro X.
+    exact (identity_of G X.1).
+Defined.
+
+Lemma truncAt_false (b : Bool) : truncAt b false = false.
+Proof.
+  destruct b; reflexivity.
+Defined.
+
+Lemma bfam_trunc_supported (g : nat -> Bool) (X : BFamObj)
+  : forall k, nat_lt W k -> object_of (FamTrunc g) X.1 k = false.
+Proof.
+  intros k Hk.
+  exact (ap (truncAt (g k)) (X.2 k Hk) @ truncAt_false (g k)).
+Defined.
+
+Definition BFamP (n : nat) : ReducedFunctor BFamPreStable.
+Proof.
+  refine (Build_ReducedFunctor BFamPreStable
+            (bfam_lift (FamTrunc (fam_guard_P n))
+               (bfam_trunc_supported (fam_guard_P n)))
+            _).
+  apply path_sigma_hprop.
+  exact (fam_trunc_zero (fam_guard_P n)).
+Defined.
+
+Definition BFamD (n : nat) : ReducedFunctor BFamPreStable.
+Proof.
+  refine (Build_ReducedFunctor BFamPreStable
+            (bfam_lift (FamTrunc (fam_guard_D n))
+               (bfam_trunc_supported (fam_guard_D n)))
+            _).
+  apply path_sigma_hprop.
+  exact (fam_trunc_zero (fam_guard_D n)).
+Defined.
+
+Definition BFamId : ReducedFunctor BFamPreStable
+  := Build_ReducedFunctor BFamPreStable 1%functor idpath.
+
+Definition bfam_P_trans (n : nat)
+  : NatTransBetweenReduced BFamPreStable (BFamP (S n)) (BFamP n).
+Proof.
+  refine (Build_NatTransBetweenReduced BFamPreStable (BFamP (S n)) (BFamP n) _).
+  refine (Build_NaturalTransformation (BFamP (S n)) (BFamP n)
+            (fun X => fam_change (fam_guard_P (S n)) (fam_guard_P n) X.1) _).
+  intros X Y f.
+  exact (fam_change_natural (fam_guard_P (S n)) (fam_guard_P n) X.1 Y.1 f).
+Defined.
+
+Definition bfam_from_id_trans (n : nat)
+  : NatTransBetweenReduced BFamPreStable BFamId (BFamP n).
+Proof.
+  refine (Build_NatTransBetweenReduced BFamPreStable BFamId (BFamP n) _).
+  refine (Build_NaturalTransformation BFamId (BFamP n)
+            (fun X => fam_change fam_guard_all (fam_guard_P n) X.1) _).
+  intros X Y f.
+  exact (fam_change_natural fam_guard_all (fam_guard_P n) X.1 Y.1 f).
+Defined.
+
+Definition BFamGoodwillieData : GoodwillieTowerData BFamPreStable BFamId
+  := {| gtd_P := BFamP;
+        gtd_p := bfam_P_trans;
+        gtd_from_F := bfam_from_id_trans |}.
+
+Definition BFamGoodwillieTower
+  : GoodwillieTowerWithLayers BFamPreStable BFamId.
+Proof.
+  refine {| gtwl_data := BFamGoodwillieData; gtwl_D := BFamD |}.
+  intros n X Hzero.
+  exact (fam_layer_zero_implies_iso n X.1
+           (ap (fun Z : BFamObj => Z.1) Hzero)).
+Defined.
+
+Fixpoint fam_count (X : FamObj nat) (k : nat) : nat
+  := match k with
+     | O => if X O then S O else O
+     | S k' => nat_add (if X k then S O else O) (fam_count X k')
+     end.
+
+Lemma fam_count_zero_family (k : nat)
+  : fam_count (fam_zero : FamObj nat) k = O.
+Proof.
+  induction k.
+  - reflexivity.
+  - exact IHk.
+Defined.
+
+Lemma fam_count_all_false (X : FamObj nat) (k : nat)
+  (Hall : forall j, nat_le j k -> X j = false)
+  : fam_count X k = O.
+Proof.
+  induction k.
+  - exact (ap (fun b : Bool => if b then S O else O) (Hall O tt)).
+  - refine (ap (fun b : Bool => nat_add (if b then S O else O) (fam_count X k))
+             (Hall (S k) (nat_le_refl (S k))) @ _).
+    exact (IHk (fun j Hj => Hall j (nat_le_succ_r j k Hj))).
+Defined.
+
+Lemma fam_count_zero_all (X : FamObj nat) (k : nat)
+  (Hz : fam_count X k = O)
+  : forall j, nat_le j k -> X j = false.
+Proof.
+  revert Hz.
+  induction k.
+  - intros Hz j Hj.
+    destruct j.
+    + destruct (bool_dec_eq (X O)) as [Hb | Hb].
+      * apply Empty_rec.
+        pose (Hz' := transport (fun b : Bool => (if b then S O else O) = O)
+                       Hb Hz).
+        exact (transport
+                 (fun m : nat => match m with O => Empty | S _ => Unit end)
+                 Hz' tt).
+      * exact Hb.
+    + destruct Hj.
+  - intros Hz j Hj.
+    destruct (bool_dec_eq (X (S k))) as [Hb | Hb].
+    + apply Empty_rec.
+      pose (Hz' := transport
+                     (fun b : Bool =>
+                        nat_add (if b then S O else O) (fam_count X k) = O)
+                     Hb Hz).
+      exact (transport
+               (fun m : nat => match m with O => Empty | S _ => Unit end)
+               Hz' tt).
+    + pose (Hz' := transport
+                     (fun b : Bool =>
+                        nat_add (if b then S O else O) (fam_count X k) = O)
+                     Hb Hz).
+      destruct (nat_lt_or_eq_or_gt j (S k)) as [[Hlt | Heq] | Hgt].
+      * exact (IHk Hz' j (nat_le_of_lt_S j k Hlt)).
+      * exact (transport (fun m => X m = false) Heq^ Hb).
+      * exact (Empty_rec _ (nat_le_lt_contradiction j (S k) Hj Hgt)).
+Defined.
+
+Definition bfam_measure : WeightMeasure BFamCat BFamZero.
+Proof.
+  refine (Build_WeightMeasure BFamCat BFamZero
+            (fun X : object BFamCat => nat_to_qpos (fam_count X.1 W)) _).
+  exact (ap nat_to_qpos (fam_count_zero_family W)).
+Defined.
+
+Theorem bfam_zero_measure_implies
+  : ZeroMeasureImpliesZeroObj BFamPreStable bfam_measure.
+Proof.
+  intros X Hz.
+  apply path_sigma_hprop.
+  apply path_forall; intro k.
+  destruct (nat_lt_or_eq_or_gt W k) as [[Hlt | Heq] | Hgt].
+  - exact (X.2 k Hlt).
+  - exact (transport (fun m => X.1 m = false) Heq
+             (fam_count_zero_all X.1 W Hz W (nat_le_refl W))).
+  - exact (fam_count_zero_all X.1 W Hz k (nat_le_of_lt k W Hgt)).
+Defined.
+
+Theorem bfam_zero_object_decidable (X : object BFamPreStable)
+  : ((X = zero BFamPreStable (ps_zero BFamPreStable))
+     + (X = zero BFamPreStable (ps_zero BFamPreStable) -> Empty))%type.
+Proof.
+  destruct (bool_dec_eq (nat_eqb (fam_count X.1 W) O)) as [Hb | Hb].
+  - left.
+    apply bfam_zero_measure_implies.
+    exact (nat_eqb_true_path _ _ Hb).
+  - right.
+    intro Hpath.
+    pose (Hc := ap (fun Z : BFamObj => fam_count Z.1 W) Hpath
+                  @ fam_count_zero_family W).
+    exact (false_ne_true
+             (Hb^ @ ap (fun m => nat_eqb m O) Hc @ nat_eqb_refl O)).
+Defined.
+
+Lemma nat_eqb_false_of_path_absurd (j m : nat)
+  (Hne : j = m -> Empty)
+  : nat_eqb j m = false.
+Proof.
+  destruct (bool_dec_eq (nat_eqb j m)) as [Hb | Hb].
+  - exact (Empty_rec _ (Hne (nat_eqb_true_path j m Hb))).
+  - exact Hb.
+Defined.
+
+Lemma fam_count_le_one_of_single (X : FamObj nat) (m : nat)
+  (Hs : forall j, nat_eqb j m = false -> X j = false)
+  : forall k, nat_le (fam_count X k) (S O).
+Proof.
+  induction k.
+  - simpl.
+    destruct (X O); exact tt.
+  - destruct (bool_dec_eq (nat_eqb (S k) m)) as [He | He].
+    + refine (transport
+               (fun c => nat_le (nat_add (if X (S k) then S O else O) c) (S O))
+               (fam_count_all_false X k
+                  (fun j Hj => Hs j
+                     (nat_eqb_false_of_path_absurd j m
+                        (fun p => nat_le_lt_contradiction (S k) k
+                           (transport (fun mm => nat_le mm k)
+                              (p @ (nat_eqb_true_path (S k) m He)^) Hj)
+                           (nat_lt_S k)))))^ _).
+      destruct (X (S k)); exact tt.
+    + refine (transport
+               (fun b : Bool =>
+                  nat_le (nat_add (if b then S O else O) (fam_count X k)) (S O))
+               (Hs (S k) He)^ _).
+      exact IHk.
+Defined.
+
+Lemma bfam_layer_count_le_one (n : nat) (X : object BFamPreStable)
+  : nat_le (fam_count (fam_trunc (fam_guard_D n) X.1) W) (S O).
+Proof.
+  apply (fam_count_le_one_of_single _ (S n)).
+  intros j He.
+  exact (ap (fun b => truncAt b (X.1 j)) He).
+Defined.
+
+Theorem bfam_layers_bounded (X : object BFamPreStable)
+  : GoodwillieLayersBounded BFamGoodwillieTower bfam_measure X
+      (nat_to_qpos (S (S W))).
+Proof.
+  intro n.
+  refine (transport (fun q => qpos_lt _ q)
+           (nat_to_qpos_S_N_times_w_stage (S W) n)^ _).
+  unfold gtwl_layer_measure.
+  simpl.
+  pose proof (bfam_layer_count_le_one n X) as Hle.
+  pose (cc := fam_count (fam_trunc (fam_guard_D n) X.1) W).
+  pose (Hcc := idpath cc
+                : fam_count (fam_trunc (fam_guard_D n) X.1) W = cc).
+  clearbody Hcc.
+  clearbody cc.
+  pose (Hle' := transport (fun m => nat_le m (S O)) Hcc Hle).
+  refine (transport
+           (fun m => qpos_lt (nat_to_qpos m)
+              {| qpos_num := S (S W); qpos_denom_pred := n |})
+           Hcc^ _).
+  destruct cc as [| c'].
+  - exact tt.
+  - destruct c' as [| c''].
+    + apply one_lt_SN_over_Sn.
+      destruct (nat_le_total n W) as [HnW | HWn].
+      * exact (nat_lt_of_lt n (S W) (leq_succ (leq_of_nat_le n W HnW))).
+      * apply Empty_rec.
+        pose (Hz := fam_count_all_false (fam_trunc (fam_guard_D n) X.1) W
+                      (fun j Hj =>
+                         ap (fun b => truncAt b (X.1 j))
+                           (nat_eqb_false_of_path_absurd j (S n)
+                              (fun p => nat_le_lt_contradiction j n
+                                 (nat_le_trans j W n Hj HWn)
+                                 (transport (fun mm => nat_lt n mm)
+                                    p^ (nat_lt_S n)))))).
+        exact (transport
+                 (fun m : nat =>
+                    match m with O => Unit | S _ => Empty end)
+                 (Hz^ @ Hcc) tt).
+    + destruct Hle'.
+Defined.
+
+Theorem bfam_layer_minimal (X : object BFamPreStable)
+  : HasMinimalPositive
+      (fun n => gtwl_layer_measure BFamGoodwillieTower bfam_measure n X).
+Proof.
+  exists (nat_to_qpos (S O)).
+  split.
+  - exact tt.
+  - intro n.
+    unfold gtwl_layer_measure.
+    simpl.
+    pose proof (bfam_layer_count_le_one n X) as Hle.
+    pose (cc := fam_count (fam_trunc (fam_guard_D n) X.1) W).
+    pose (Hcc := idpath cc
+                  : fam_count (fam_trunc (fam_guard_D n) X.1) W = cc).
+    clearbody Hcc.
+    clearbody cc.
+    pose (Hle' := transport (fun m => nat_le m (S O)) Hcc Hle).
+    refine (transport
+             (fun m => ((qpos_is_zero (nat_to_qpos m))
+                + ((qpos_lt (nat_to_qpos (S O)) (nat_to_qpos m))
+                   + (nat_to_qpos m = nat_to_qpos (S O))))%type)
+             Hcc^ _).
+    destruct cc as [| c'].
+    + left.
+      reflexivity.
+    + destruct c' as [| c''].
+      * right.
+        right.
+        reflexivity.
+      * destruct Hle'.
+Defined.
+
+Theorem bfam_goodwillie_stabilizes (X : object BFamPreStable)
+  : { N : nat & forall n, nat_le N n ->
+      IsIsomorphism
+        (gtd_layer_at (gtwl_data BFamPreStable BFamId BFamGoodwillieTower)
+           n X) }.
+Proof.
+  apply (goodwillie_tower_stabilizes BFamGoodwillieTower bfam_measure X
+           (nat_to_qpos (S (S W)))).
+  - exact tt.
+  - exact (bfam_layers_bounded X).
+  - exact (bfam_layer_minimal X).
+  - exact bfam_zero_measure_implies.
+Defined.
+
+End BoundedFamilies.
+
 (*******************************************************************************)
 (*  CONCRETE SCHEMES: GENUINE MORPHISM DATA, A1-HOMOTOPY, AND THE              *)
 (*  SEPARATION OF SCHEME ISOMORPHISM FROM A1-EQUIVALENCE                       *)
@@ -6920,8 +7697,67 @@ Record CField : Type := {
   cf_mul : cf_carrier -> cf_carrier -> cf_carrier;
   cf_mul_one_r : forall x, cf_mul x cf_one = x;
   cf_mul_zero_r : forall x, cf_mul x cf_zero = cf_zero;
-  cf_zero_ne_one : cf_zero = cf_one -> Empty
+  cf_zero_ne_one : cf_zero = cf_one -> Empty;
+  cf_add : cf_carrier -> cf_carrier -> cf_carrier;
+  cf_neg : cf_carrier -> cf_carrier;
+  cf_add_assoc : forall x y z, cf_add x (cf_add y z) = cf_add (cf_add x y) z;
+  cf_add_comm : forall x y, cf_add x y = cf_add y x;
+  cf_add_zero_r : forall x, cf_add x cf_zero = x;
+  cf_add_neg_r : forall x, cf_add x (cf_neg x) = cf_zero;
+  cf_mul_assoc : forall x y z, cf_mul x (cf_mul y z) = cf_mul (cf_mul x y) z;
+  cf_mul_comm : forall x y, cf_mul x y = cf_mul y x;
+  cf_dist : forall x y z,
+    cf_mul x (cf_add y z) = cf_add (cf_mul x y) (cf_mul x z);
+  cf_inv : cf_carrier -> cf_carrier;
+  cf_inv_r : forall x, (x = cf_zero -> Empty) -> cf_mul x (cf_inv x) = cf_one
 }.
+
+Definition xorb (a b : Bool) : Bool := if a then negb b else b.
+
+Lemma xorb_assoc (x y z : Bool) : xorb x (xorb y z) = xorb (xorb x y) z.
+Proof.
+  destruct x, y, z; reflexivity.
+Defined.
+
+Lemma xorb_comm (x y : Bool) : xorb x y = xorb y x.
+Proof.
+  destruct x, y; reflexivity.
+Defined.
+
+Lemma xorb_false_r (x : Bool) : xorb x false = x.
+Proof.
+  destruct x; reflexivity.
+Defined.
+
+Lemma xorb_diag (x : Bool) : xorb x x = false.
+Proof.
+  destruct x; reflexivity.
+Defined.
+
+Lemma andb_assoc_field (x y z : Bool)
+  : andb x (andb y z) = andb (andb x y) z.
+Proof.
+  destruct x, y, z; reflexivity.
+Defined.
+
+Lemma andb_comm (x y : Bool) : andb x y = andb y x.
+Proof.
+  destruct x, y; reflexivity.
+Defined.
+
+Lemma andb_xorb_dist (x y z : Bool)
+  : andb x (xorb y z) = xorb (andb x y) (andb x z).
+Proof.
+  destruct x, y, z; reflexivity.
+Defined.
+
+Lemma bool_self_inv (x : Bool) (Hx : x = false -> Empty)
+  : andb x x = true.
+Proof.
+  destruct x.
+  - reflexivity.
+  - exact (Empty_rec _ (Hx idpath)).
+Defined.
 
 Definition F2 : CField
   := {| cf_carrier := Bool;
@@ -6931,7 +7767,34 @@ Definition F2 : CField
         cf_mul := andb;
         cf_mul_one_r := andb_true_r;
         cf_mul_zero_r := andb_false_r;
-        cf_zero_ne_one := false_ne_true |}.
+        cf_zero_ne_one := false_ne_true;
+        cf_add := xorb;
+        cf_neg := idmap;
+        cf_add_assoc := xorb_assoc;
+        cf_add_comm := xorb_comm;
+        cf_add_zero_r := xorb_false_r;
+        cf_add_neg_r := xorb_diag;
+        cf_mul_assoc := andb_assoc_field;
+        cf_mul_comm := andb_comm;
+        cf_dist := andb_xorb_dist;
+        cf_inv := idmap;
+        cf_inv_r := bool_self_inv |}.
+
+(** Fields have no zero divisors, constructively: a product vanishing with invertible left factor forces the right factor to vanish. *)
+
+Theorem cfield_integral (F : CField) (x y : cf_carrier F)
+  (Hx : x = cf_zero F -> Empty)
+  (Hxy : cf_mul F x y = cf_zero F)
+  : y = cf_zero F.
+Proof.
+  refine ((cf_mul_one_r F y)^ @ _).
+  refine (ap (cf_mul F y) (cf_inv_r F x Hx)^ @ _).
+  refine (cf_mul_assoc F y x (cf_inv F x) @ _).
+  refine (ap (fun w => cf_mul F w (cf_inv F x)) (cf_mul_comm F y x) @ _).
+  refine (ap (fun w => cf_mul F w (cf_inv F x)) Hxy @ _).
+  refine (cf_mul_comm F (cf_zero F) (cf_inv F x) @ _).
+  exact (cf_mul_zero_r F (cf_inv F x)).
+Defined.
 
 Record CScheme (F : CField) : Type := {
   cs_carrier : Type;
@@ -6940,8 +7803,439 @@ Record CScheme (F : CField) : Type := {
   cs_sing : nat
 }.
 
+(** *** Affine data determining dimension and singularity: coordinate subspaces of affine space derive cs_dim as the free-coordinate count, unions of two subspaces derive cs_sing as the crossing count, and both counts are characterized by the carrier. *)
+
+Record AffineDatum (F : CField) := {
+  ad_vars : nat;
+  ad_mask : nat -> Bool
+}.
+
+Definition ad_free (F : CField) (D : AffineDatum F) : nat -> Bool
+  := fun i => andb (ad_mask F D i) (nat_leb (S i) (ad_vars F D)).
+
+Definition ad_carrier (F : CField) (D : AffineDatum F) : Type
+  := { p : nat -> cf_carrier F &
+       forall i, ad_free F D i = false -> p i = cf_zero F }.
+
+Global Instance ishset_ad_carrier `{Funext} (F : CField) (D : AffineDatum F)
+  : IsHSet (ad_carrier F D).
+Proof.
+  pose proof (cf_ishset F) as Hf.
+  apply istrunc_sigma.
+Defined.
+
+Definition ad_dim (F : CField) (D : AffineDatum F) : nat
+  := fam_count (ad_free F D) (ad_vars F D).
+
+Definition cscheme_of_datum `{Funext} (F : CField) (D : AffineDatum F)
+  : CScheme F
+  := {| cs_carrier := ad_carrier F D;
+        cs_ishset := ishset_ad_carrier F D;
+        cs_dim := ad_dim F D;
+        cs_sing := O |}.
+
+Definition ad_origin (F : CField) (D : AffineDatum F) : ad_carrier F D
+  := ((fun _ => cf_zero F) ; fun i _ => idpath).
+
+Definition ad_axis_point (F : CField) (D : AffineDatum F) (i : nat)
+  (Hi : ad_free F D i = true)
+  : ad_carrier F D.
+Proof.
+  exists (fun j => if nat_eqb j i then cf_one F else cf_zero F).
+  intros j Hj.
+  destruct (bool_dec_eq (nat_eqb j i)) as [He | He].
+  - apply Empty_rec.
+    exact (false_ne_true
+             (Hj^ @ ap (ad_free F D) (nat_eqb_true_path j i He) @ Hi)).
+  - exact (ap (fun b : Bool => if b then cf_one F else cf_zero F) He).
+Defined.
+
+Theorem ad_dim_zero_of_contr `{Funext} (F : CField) (D : AffineDatum F)
+  (Hc : Contr (ad_carrier F D))
+  : ad_dim F D = O.
+Proof.
+  apply fam_count_all_false.
+  intros i Hle.
+  destruct (bool_dec_eq (ad_free F D i)) as [Hb | Hb].
+  - apply Empty_rec.
+    apply (cf_zero_ne_one F).
+    refine ((apD10 (ap (fun z : ad_carrier F D => z.1)
+              (@path_contr _ Hc (ad_origin F D) (ad_axis_point F D i Hb)))
+              i) @ _).
+    exact (ap (fun b : Bool => if b then cf_one F else cf_zero F)
+             (nat_eqb_refl i)).
+  - exact Hb.
+Defined.
+
+Lemma nat_leb_true_le (a b : nat) : nat_leb a b = true -> nat_le a b.
+Proof.
+  revert b.
+  induction a.
+  - intros b _.
+    exact tt.
+  - intros b Hb.
+    destruct b.
+    + exact (false_ne_true Hb).
+    + exact (IHa b Hb).
+Defined.
+
+Theorem ad_contr_of_dim_zero `{Funext} (F : CField) (D : AffineDatum F)
+  (Hd : ad_dim F D = O)
+  : Contr (ad_carrier F D).
+Proof.
+  refine (Build_Contr _ (ad_origin F D) _).
+  intro p.
+  pose proof (cf_ishset F) as Hf.
+  apply path_sigma_hprop.
+  apply path_forall; intro i.
+  symmetry.
+  destruct (bool_dec_eq (ad_free F D i)) as [Hb | Hb].
+  - apply Empty_rec.
+    destruct (nat_le_total i (ad_vars F D)) as [Hle | Hge].
+    + exact (false_ne_true
+               ((fam_count_zero_all (ad_free F D) (ad_vars F D) Hd i Hle)^
+                  @ Hb)).
+    + destruct (bool_dec_eq (ad_mask F D i)) as [Hm | Hm].
+      * pose (Hb' := (ap (fun b => andb b (nat_leb (S i) (ad_vars F D))) Hm)^
+                       @ Hb).
+        exact (nat_le_lt_contradiction (S i) i
+                 (nat_le_trans (S i) (ad_vars F D) i
+                    (nat_leb_true_le (S i) (ad_vars F D) Hb')
+                    Hge)
+                 (nat_lt_S i)).
+      * exact (false_ne_true
+                 ((ap (fun b => andb b (nat_leb (S i) (ad_vars F D))) Hm)^
+                    @ Hb)).
+  - exact (p.2 i Hb).
+Defined.
+
+(** Unions of two coordinate subspaces derive the singularity count as the crossing count, characterized by the meeting locus of the components. *)
+
+Import HoTT.Truncations.Core.
+
+Record UnionDatum (F : CField) := {
+  ud_vars : nat;
+  ud_mask1 : nat -> Bool;
+  ud_mask2 : nat -> Bool
+}.
+
+Definition ud_free1 (F : CField) (U : UnionDatum F) : nat -> Bool
+  := fun i => andb (ud_mask1 F U i) (nat_leb (S i) (ud_vars F U)).
+
+Definition ud_free2 (F : CField) (U : UnionDatum F) : nat -> Bool
+  := fun i => andb (ud_mask2 F U i) (nat_leb (S i) (ud_vars F U)).
+
+Definition ud_cross (F : CField) (U : UnionDatum F) : nat -> Bool
+  := fun i => andb (ud_free1 F U i) (ud_free2 F U i).
+
+Definition ud_in1 (F : CField) (U : UnionDatum F)
+  (p : nat -> cf_carrier F) : Type
+  := forall i, ud_free1 F U i = false -> p i = cf_zero F.
+
+Definition ud_in2 (F : CField) (U : UnionDatum F)
+  (p : nat -> cf_carrier F) : Type
+  := forall i, ud_free2 F U i = false -> p i = cf_zero F.
+
+Definition ud_carrier (F : CField) (U : UnionDatum F) : Type
+  := { p : nat -> cf_carrier F &
+       merely ((ud_in1 F U p) + (ud_in2 F U p)) }.
+
+Global Instance ishset_ud_carrier `{Funext} (F : CField) (U : UnionDatum F)
+  : IsHSet (ud_carrier F U).
+Proof.
+  pose proof (cf_ishset F) as Hf.
+  apply istrunc_sigma.
+Defined.
+
+Definition uscheme_of_datum `{Funext} (F : CField) (U : UnionDatum F)
+  : CScheme F
+  := {| cs_carrier := ud_carrier F U;
+        cs_ishset := ishset_ud_carrier F U;
+        cs_dim := nat_max (fam_count (ud_free1 F U) (ud_vars F U))
+                          (fam_count (ud_free2 F U) (ud_vars F U));
+        cs_sing := fam_count (ud_cross F U) (ud_vars F U) |}.
+
+Lemma andb_true_split (a b : Bool) (Hab : andb a b = true)
+  : ((a = true) * (b = true))%type.
+Proof.
+  destruct a.
+  - exact (idpath, Hab).
+  - exact (Empty_rec _ (false_ne_true Hab)).
+Defined.
+
+Theorem ud_sing_zero_meet `{Funext} (F : CField) (U : UnionDatum F)
+  (Hs : fam_count (ud_cross F U) (ud_vars F U) = O)
+  (p : nat -> cf_carrier F)
+  (H1 : ud_in1 F U p) (H2 : ud_in2 F U p)
+  : forall i, p i = cf_zero F.
+Proof.
+  intro i.
+  destruct (bool_dec_eq (ud_free1 F U i)) as [Hb1 | Hb1].
+  - destruct (bool_dec_eq (ud_free2 F U i)) as [Hb2 | Hb2].
+    + apply Empty_rec.
+      destruct (nat_le_total i (ud_vars F U)) as [Hle | Hge].
+      * refine (false_ne_true
+                 ((fam_count_zero_all (ud_cross F U) (ud_vars F U) Hs i Hle)^
+                    @ _)).
+        unfold ud_cross.
+        exact (ap (fun b => andb b (ud_free2 F U i)) Hb1
+                 @ ap (fun b => andb true b) Hb2).
+      * destruct (andb_true_split _ _ Hb1) as [Hm1 Hl1].
+        exact (nat_le_lt_contradiction (S i) i
+                 (nat_le_trans (S i) (ud_vars F U) i
+                    (nat_leb_true_le (S i) (ud_vars F U) Hl1)
+                    Hge)
+                 (nat_lt_S i)).
+    + exact (H2 i Hb2).
+  - exact (H1 i Hb1).
+Defined.
+
+Theorem ud_meet_zero_sing `{Funext} (F : CField) (U : UnionDatum F)
+  (Hmeet : forall p, ud_in1 F U p -> ud_in2 F U p ->
+           forall i, p i = cf_zero F)
+  : fam_count (ud_cross F U) (ud_vars F U) = O.
+Proof.
+  apply fam_count_all_false.
+  intros i Hle.
+  destruct (bool_dec_eq (ud_cross F U i)) as [Hb | Hb].
+  - apply Empty_rec.
+    destruct (andb_true_split _ _ Hb) as [Hb1 Hb2].
+    pose (e := fun j => if nat_eqb j i then cf_one F else cf_zero F).
+    assert (He1 : ud_in1 F U e).
+    { intros j Hj.
+      destruct (bool_dec_eq (nat_eqb j i)) as [He | He].
+      - apply Empty_rec.
+        exact (false_ne_true
+                 (Hj^ @ ap (ud_free1 F U) (nat_eqb_true_path j i He) @ Hb1)).
+      - exact (ap (fun b : Bool => if b then cf_one F else cf_zero F) He). }
+    assert (He2 : ud_in2 F U e).
+    { intros j Hj.
+      destruct (bool_dec_eq (nat_eqb j i)) as [He | He].
+      - apply Empty_rec.
+        exact (false_ne_true
+                 (Hj^ @ ap (ud_free2 F U) (nat_eqb_true_path j i He) @ Hb2)).
+      - exact (ap (fun b : Bool => if b then cf_one F else cf_zero F) He). }
+    apply (cf_zero_ne_one F).
+    refine ((Hmeet e He1 He2 i)^ @ _).
+    exact (ap (fun b : Bool => if b then cf_one F else cf_zero F)
+             (nat_eqb_refl i)).
+  - exact Hb.
+Defined.
+
+(** *** Polynomial morphisms on affine data: coordinatewise polynomial expressions with soundness into the target subspace, closed under identity and substitution. *)
+
+Inductive PolyExpr (F : CField) : Type :=
+  | pe_const : cf_carrier F -> PolyExpr F
+  | pe_var : nat -> PolyExpr F
+  | pe_add : PolyExpr F -> PolyExpr F -> PolyExpr F
+  | pe_mul : PolyExpr F -> PolyExpr F -> PolyExpr F.
+
+Fixpoint pe_eval (F : CField) (e : PolyExpr F)
+  (p : nat -> cf_carrier F) : cf_carrier F
+  := match e with
+     | pe_const c => c
+     | pe_var i => p i
+     | pe_add a b => cf_add F (pe_eval F a p) (pe_eval F b p)
+     | pe_mul a b => cf_mul F (pe_eval F a p) (pe_eval F b p)
+     end.
+
+Fixpoint pe_subst (F : CField) (e : PolyExpr F)
+  (s : nat -> PolyExpr F) : PolyExpr F
+  := match e with
+     | pe_const c => pe_const F c
+     | pe_var i => s i
+     | pe_add a b => pe_add F (pe_subst F a s) (pe_subst F b s)
+     | pe_mul a b => pe_mul F (pe_subst F a s) (pe_subst F b s)
+     end.
+
+Lemma pe_eval_subst (F : CField) (e : PolyExpr F)
+  (s : nat -> PolyExpr F) (p : nat -> cf_carrier F)
+  : pe_eval F (pe_subst F e s) p
+    = pe_eval F e (fun i => pe_eval F (s i) p).
+Proof.
+  induction e.
+  - reflexivity.
+  - reflexivity.
+  - simpl.
+    exact (ap011 (cf_add F) IHe1 IHe2).
+  - simpl.
+    exact (ap011 (cf_mul F) IHe1 IHe2).
+Defined.
+
+Record PolyMor (F : CField) (D E : AffineDatum F) := {
+  pm_coord : nat -> PolyExpr F;
+  pm_sound : forall (p : ad_carrier F D) (i : nat),
+    ad_free F E i = false ->
+    pe_eval F (pm_coord i) p.1 = cf_zero F
+}.
+
+Definition pm_apply (F : CField) (D E : AffineDatum F)
+  (m : PolyMor F D E)
+  : ad_carrier F D -> ad_carrier F E
+  := fun p => ((fun i => pe_eval F (pm_coord F D E m i) p.1) ;
+               fun i Hi => pm_sound F D E m p i Hi).
+
+Definition pm_id (F : CField) (D : AffineDatum F) : PolyMor F D D.
+Proof.
+  refine (Build_PolyMor F D D (fun i => pe_var F i) _).
+  intros p i Hi.
+  exact (p.2 i Hi).
+Defined.
+
+Definition pm_comp (F : CField) (D E G : AffineDatum F)
+  (n : PolyMor F E G) (m : PolyMor F D E)
+  : PolyMor F D G.
+Proof.
+  refine (Build_PolyMor F D G
+            (fun i => pe_subst F (pm_coord F E G n i) (pm_coord F D E m))
+            _).
+  intros p i Hi.
+  refine (pe_eval_subst F (pm_coord F E G n i) (pm_coord F D E m) p.1 @ _).
+  exact (pm_sound F E G n (pm_apply F D E m p) i Hi).
+Defined.
+
+Theorem pm_apply_comp `{Funext} (F : CField) (D E G : AffineDatum F)
+  (n : PolyMor F E G) (m : PolyMor F D E) (p : ad_carrier F D)
+  : (pm_apply F D G (pm_comp F D E G n m) p).1
+    = (pm_apply F E G n (pm_apply F D E m p)).1.
+Proof.
+  apply path_forall; intro i.
+  exact (pe_eval_subst F (pm_coord F E G n i) (pm_coord F D E m) p.1).
+Defined.
+
 Definition CMor {F : CField} (X Y : CScheme F) : Type
   := cs_carrier F X -> cs_carrier F Y.
+
+(** Audit: fst and snd are shadowed by HoTT.Categories under this import set, so carrier projections are local. *)
+
+Definition prod_pr1 {A B : Type} (p : (A * B)%type) : A
+  := match p with (a, _) => a end.
+
+Definition prod_pr2 {A B : Type} (p : (A * B)%type) : B
+  := match p with (_, b) => b end.
+
+Lemma prod_eta {A B : Type} (p : (A * B)%type)
+  : (prod_pr1 p, prod_pr2 p) = p.
+Proof.
+  destruct p.
+  reflexivity.
+Defined.
+
+(** *** Nisnevich squares with the completely decomposed condition: every point lies merely in the open part or has a contractible fiber in the etale part, which yields a genuine section off the open locus, something joint surjectivity cannot deliver. *)
+
+Record NisSquare (F : CField) := {
+  ns_X : CScheme F;
+  ns_U : CScheme F;
+  ns_V : CScheme F;
+  ns_u : CMor ns_U ns_X;
+  ns_v : CMor ns_V ns_X;
+  ns_decomp : forall x : cs_carrier F ns_X,
+    ((merely { u : cs_carrier F ns_U & ns_u u = x })
+     + (Contr { v : cs_carrier F ns_V & ns_v v = x }))%type
+}.
+
+Theorem nis_jointly_surjective (F : CField) (S : NisSquare F)
+  (x : cs_carrier F (ns_X F S))
+  : merely (({ u : cs_carrier F (ns_U F S) & ns_u F S u = x }
+             + { v : cs_carrier F (ns_V F S) & ns_v F S v = x })%type).
+Proof.
+  destruct (ns_decomp F S x) as [Hu | Hv].
+  - strip_truncations.
+    apply tr.
+    left.
+    exact Hu.
+  - apply tr.
+    right.
+    exact (@center _ Hv).
+Defined.
+
+Theorem nis_off_open_section (F : CField) (S : NisSquare F)
+  (x : cs_carrier F (ns_X F S))
+  (Hoff : merely { u : cs_carrier F (ns_U F S) & ns_u F S u = x } -> Empty)
+  : { v : cs_carrier F (ns_V F S) & ns_v F S v = x }.
+Proof.
+  destruct (ns_decomp F S x) as [Hu | Hv].
+  - exact (Empty_rec _ (Hoff Hu)).
+  - exact (@center _ Hv).
+Defined.
+
+Theorem nis_off_open_section_unique (F : CField) (S : NisSquare F)
+  (x : cs_carrier F (ns_X F S))
+  (Hoff : merely { u : cs_carrier F (ns_U F S) & ns_u F S u = x } -> Empty)
+  (w w' : { v : cs_carrier F (ns_V F S) & ns_v F S v = x })
+  : w = w'.
+Proof.
+  destruct (ns_decomp F S x) as [Hu | Hv].
+  - exact (Empty_rec _ (Hoff Hu)).
+  - exact (@path_contr _ Hv w w').
+Defined.
+
+(** *** Fiber products of concrete schemes with dimension and singularity bookkeeping and the genuine pullback universal property. *)
+
+Definition cfp_carrier {F : CField} {X Y Z : CScheme F}
+  (f : CMor X Z) (g : CMor Y Z) : Type
+  := { xy : (cs_carrier F X * cs_carrier F Y)%type &
+       f (prod_pr1 xy) = g (prod_pr2 xy) }.
+
+Global Instance ishset_cfp_carrier `{Funext} {F : CField} {X Y Z : CScheme F}
+  (f : CMor X Z) (g : CMor Y Z)
+  : IsHSet (cfp_carrier f g).
+Proof.
+  pose proof (cs_ishset F X) as HX.
+  pose proof (cs_ishset F Y) as HY.
+  pose proof (cs_ishset F Z) as HZ.
+  apply istrunc_sigma.
+Defined.
+
+Definition cfiber_product `{Funext} {F : CField} {X Y Z : CScheme F}
+  (f : CMor X Z) (g : CMor Y Z)
+  : CScheme F
+  := {| cs_carrier := cfp_carrier f g;
+        cs_ishset := ishset_cfp_carrier f g;
+        cs_dim := nat_sub (nat_add (cs_dim F X) (cs_dim F Y)) (cs_dim F Z);
+        cs_sing := nat_add (cs_sing F X) (cs_sing F Y) |}.
+
+Definition cfp_pr1 `{Funext} {F : CField} {X Y Z : CScheme F}
+  (f : CMor X Z) (g : CMor Y Z)
+  : CMor (cfiber_product f g) X
+  := fun w => prod_pr1 w.1.
+
+Definition cfp_pr2 `{Funext} {F : CField} {X Y Z : CScheme F}
+  (f : CMor X Z) (g : CMor Y Z)
+  : CMor (cfiber_product f g) Y
+  := fun w => prod_pr2 w.1.
+
+Theorem cfp_comm `{Funext} {F : CField} {X Y Z : CScheme F}
+  (f : CMor X Z) (g : CMor Y Z)
+  : (fun w => f (cfp_pr1 f g w)) = (fun w => g (cfp_pr2 f g w)).
+Proof.
+  apply path_forall; intro w.
+  exact w.2.
+Defined.
+
+Theorem cfiber_product_universal `{Funext} {F : CField} {X Y Z : CScheme F}
+  (f : CMor X Z) (g : CMor Y Z)
+  (W : CScheme F) (a : CMor W X) (b : CMor W Y)
+  (Hab : (fun w => f (a w)) = (fun w => g (b w)))
+  : Contr { u : CMor W (cfiber_product f g) &
+            (((fun w => cfp_pr1 f g (u w)) = a)
+             * ((fun w => cfp_pr2 f g (u w)) = b))%type }.
+Proof.
+  pose proof (cs_ishset F X) as HX.
+  pose proof (cs_ishset F Y) as HY.
+  pose proof (cs_ishset F Z) as HZ.
+  refine (Build_Contr _
+            ((fun w => ((a w , b w) ; apD10 Hab w)) ;
+             (path_forall _ _ (fun w => idpath) ,
+              path_forall _ _ (fun w => idpath))) _).
+  intros [u' [e1 e2]].
+  apply path_sigma_hprop.
+  apply path_forall; intro w.
+  symmetry.
+  apply path_sigma_hprop.
+  exact (path_prod ((u' w).1) ((a w , b w))
+           (apD10 e1 w) (apD10 e2 w)).
+Defined.
 
 Global Instance ishset_cmor `{Funext} {F : CField} (X Y : CScheme F)
   : IsHSet (CMor X Y).
@@ -6983,19 +8277,21 @@ Definition cs_product {F : CField} (X Y : CScheme F) : CScheme F
         cs_dim := nat_add (cs_dim F X) (cs_dim F Y);
         cs_sing := nat_add (cs_sing F X) (cs_sing F Y) |}.
 
-(** Audit: fst and snd are shadowed by HoTT.Categories under this import set, so carrier projections are local. *)
+(** *** The product-with-the-affine-line endofunctor on CSch: the scheme world and the tower world exchange morphisms through it. *)
 
-Definition prod_pr1 {A B : Type} (p : (A * B)%type) : A
-  := match p with (a, _) => a end.
-
-Definition prod_pr2 {A B : Type} (p : (A * B)%type) : B
-  := match p with (_, b) => b end.
-
-Lemma prod_eta {A B : Type} (p : (A * B)%type)
-  : (prod_pr1 p, prod_pr2 p) = p.
+Definition CSchA1Functor `{Funext} (F : CField)
+  : Functor (CSch F) (CSch F).
 Proof.
-  destruct p.
-  reflexivity.
+  refine (Build_Functor (CSch F) (CSch F)
+            (fun X => cs_product X (cA1 F))
+            (fun X Y f => fun xa => (f (prod_pr1 xa) , prod_pr2 xa))
+            _ _).
+  - intros X Y Z f g.
+    apply path_forall; intro xa.
+    reflexivity.
+  - intro X.
+    apply path_forall; intro xa.
+    exact (prod_eta xa).
 Defined.
 
 Definition cproj {F : CField} (X : CScheme F)
@@ -7515,6 +8811,205 @@ Proof.
   - exact (Empty_rec _ (false_ne_true ((Hs (S i) tt)^ @ p))).
 Defined.
 
+(** *** The repair of the cube notion and n-excision of the truncation
+
+    Zero-excision in the unrepaired sense forces a functor to send every map
+    to an isomorphism, which no non-constant weight truncation does, so the
+    weighted notion conditions excision on cubes whose action the truncation
+    classifies as high: on such cubes the image maps are isomorphisms and the
+    image cube is cartesian.  The cartesianness argument is purely formal and
+    holds in any category. *)
+
+Definition gunion (g h : nat -> Bool) : nat -> Bool
+  := fun i => orb (g i) (h i).
+
+Lemma guard_le_union_l (g h : nat -> Bool) : guard_le g (gunion g h).
+Proof.
+  intros i p.
+  unfold gunion.
+  rewrite p.
+  reflexivity.
+Defined.
+
+Lemma guard_le_union_r (g h : nat -> Bool) : guard_le h (gunion g h).
+Proof.
+  intros i p.
+  unfold gunion.
+  rewrite p.
+  destruct (g i); reflexivity.
+Defined.
+
+Lemma guard_below_union (m : nat) (g h : nat -> Bool)
+  (Hg : guard_below m g) (Hh : guard_below m h)
+  : guard_below m (gunion g h).
+Proof.
+  intros i Hi.
+  unfold gunion.
+  rewrite (Hg i Hi).
+  rewrite (Hh i Hi).
+  reflexivity.
+Defined.
+
+Theorem all_iso_cube_cartesian `{Funext} {C : PreCategory} (m : nat)
+  (Hm : nat_lt O m)
+  (D : GuardDiagram C)
+  (Hiso : forall g h (Hle : guard_le g h),
+      IsIsomorphism (gd_map C D g h Hle))
+  : IsCartesianCubeBelow m D.
+Proof.
+  intros W c.
+  pose (d0 := gupd guard_empty O).
+  assert (Hd0below : guard_below m d0).
+  { intros i Hi.
+    unfold d0, gupd, guard_empty.
+    destruct (bool_dec_eq (nat_eqb i O)) as [He | He].
+    - apply Empty_rec.
+      exact (nat_le_lt_contradiction m i Hi
+               (transport (fun j => nat_lt j m)
+                  (nat_eqb_true_path i O He)^ Hm)).
+    - rewrite He.
+      reflexivity. }
+  assert (Hd0occ : { i : nat & d0 i = true }).
+  { exists O.
+    reflexivity. }
+  pose (e0 := Hiso guard_empty d0 (guard_le_from_empty d0)).
+  pose (u0 := ((iso_inverse e0)
+                 o cc_component m D W c d0 Hd0below Hd0occ)%morphism).
+  assert (Hcompat : forall g (Hg : guard_below m g)
+                           (wg : { i : nat & g i = true }),
+      (gd_map C D guard_empty g (guard_le_from_empty g) o u0)%morphism
+      = cc_component m D W c g Hg wg).
+  { intros g Hg wg.
+    pose (gu := gunion d0 g).
+    assert (Hgub : guard_below m gu).
+    { exact (guard_below_union m d0 g Hd0below Hg). }
+    assert (Hguocc : { i : nat & gu i = true }).
+    { exists O.
+      reflexivity. }
+    apply (iso_cancel_l (gd_map C D g gu (guard_le_union_r d0 g))
+             (Hiso g gu (guard_le_union_r d0 g))).
+    refine ((associativity _ _ _ _ _ _ _ _)^ @ _).
+    refine (ap (fun h => (h o u0)%morphism)
+              ((gd_map_comp C D guard_empty g gu
+                  (guard_le_from_empty g) (guard_le_union_r d0 g))^
+               @ ap (gd_map C D guard_empty gu)
+                   (path_ishprop _ (guard_le_from_empty gu))
+               @ (ap (gd_map C D guard_empty gu)
+                   (path_ishprop _ _))^
+               @ gd_map_comp C D guard_empty d0 gu
+                   (guard_le_from_empty d0) (guard_le_union_l d0 g))
+              @ _).
+    refine (associativity _ _ _ _ _ _ _ _ @ _).
+    refine (ap (fun h => (gd_map C D d0 gu (guard_le_union_l d0 g) o h)%morphism)
+              _ @ _).
+    { unfold u0.
+      refine ((associativity _ _ _ _ _ _ _ _)^ @ _).
+      refine (ap (fun h => (h o cc_component m D W c d0 Hd0below Hd0occ)%morphism)
+                (prod_pr2 e0.2) @ _).
+      apply left_identity. }
+    refine (cc_compat m D W c d0 gu (guard_le_union_l d0 g)
+              Hd0below Hgub Hd0occ Hguocc @ _).
+    exact (cc_compat m D W c g gu (guard_le_union_r d0 g)
+             Hg Hgub wg Hguocc)^.
+  }
+  refine (Build_Contr _ (u0 ; Hcompat) _).
+  intros [u' e'].
+  apply path_sigma_hprop.
+  apply (iso_cancel_l (gd_map C D guard_empty d0 (guard_le_from_empty d0))
+           e0).
+  exact (Hcompat d0 Hd0below Hd0occ @ (e' d0 Hd0below Hd0occ)^).
+Defined.
+
+Definition IsNExcisiveWeighted `{Funext}
+  (F : Functor (FamCat nat) (FamCat nat)) (n : nat)
+  : Type
+  := forall D : GuardDiagram (FamCat nat),
+     IsStronglyCocartesianBelow (S n) D ->
+     (forall g h (Hle : guard_le g h),
+        IsIsomorphism (C := FamCat nat)
+          (morphism_of F (gd_map (FamCat nat) D g h Hle))) ->
+     IsCartesianCubeBelow (S n) (gd_image F D).
+
+Theorem FamP_n_excisive_weighted `{Funext} (n : nat)
+  : IsNExcisiveWeighted (FamTrunc (fam_guard_P n)) n.
+Proof.
+  intros D Hsc Hinv.
+  apply (all_iso_cube_cartesian (S n) tt).
+  intros g h Hle.
+  exact (Hinv g h Hle).
+Defined.
+
+Definition constant_guard_diagram {C : PreCategory} (X : object C)
+  : GuardDiagram C.
+Proof.
+  refine (Build_GuardDiagram C (fun _ => X) (fun _ _ _ => 1%morphism) _ _).
+  - intros g Hgg.
+    reflexivity.
+  - intros g h k Hgh Hhk.
+    symmetry.
+    apply left_identity.
+Defined.
+
+Lemma constant_diagram_strongly_cocartesian `{Funext} (m : nat)
+  (X : object (FamCat nat))
+  : IsStronglyCocartesianBelow m (constant_guard_diagram X).
+Proof.
+  intros g j k Hj Hk Hjk W a b Hab.
+  assert (Hba : a = b).
+  { exact ((right_identity _ _ _ a)^ @ Hab @ right_identity _ _ _ b). }
+  refine (Build_Contr _
+            (a ; (right_identity _ _ _ a ,
+                  right_identity _ _ _ a @ Hba)) _).
+  intros [u [e1 e2]].
+  apply path_sigma_hprop.
+  exact ((right_identity _ _ _ u)^ @ e1)^.
+Defined.
+
+Theorem FamP_excision_nonvacuous `{Funext} (n : nat) (X : FamObj nat)
+  : IsCartesianCubeBelow (S n)
+      (gd_image (FamTrunc (fam_guard_P n))
+         (constant_guard_diagram (X : object (FamCat nat)))).
+Proof.
+  apply (FamP_n_excisive_weighted n).
+  - exact (constant_diagram_strongly_cocartesian (S n) X).
+  - intros g h Hle.
+    refine (transport (fun f => IsIsomorphism (C := FamCat nat) f)
+             (identity_of (FamTrunc (fam_guard_P n)) X)^ _).
+    exists 1%morphism.
+    split.
+    + apply left_identity.
+    + apply left_identity.
+Defined.
+
+(** *** n-homogeneity: the layer is weighted n-excisive and its part below the layer level vanishes. *)
+
+Definition IsNHomogeneousWeighted `{Funext}
+  (F : Functor (FamCat nat) (FamCat nat)) (n : nat)
+  : Type
+  := (IsNExcisiveWeighted F n
+      * (forall X : FamObj nat,
+           object_of (FamTrunc (fam_guard_P n)) (object_of F X)
+           = (fam_zero : FamObj nat)))%type.
+
+Theorem FamD_n_homogeneous `{Funext} (n : nat)
+  : IsNHomogeneousWeighted (FamTrunc (fam_guard_D n)) n.
+Proof.
+  split.
+  - intros D Hsc Hinv.
+    apply (all_iso_cube_cartesian (S n) tt).
+    exact Hinv.
+  - intro X.
+    apply path_forall; intro k.
+    destruct (bool_dec_eq (nat_leb k n)) as [Hb | Hb].
+    + refine (ap (fun b => truncAt b (truncAt (nat_eqb k (S n)) (X k))) Hb
+               @ _).
+      exact (ap (fun b => truncAt b (X k))
+               (nat_eqb_window k n
+                @ ap (fun b => andb (nat_leb k (S n)) (negb b)) Hb
+                @ andb_false_r (nat_leb k (S n)))).
+    + exact (ap (fun b => truncAt b (truncAt (nat_eqb k (S n)) (X k))) Hb).
+Defined.
+
 Theorem fam_id_not_0_excisive `{Funext}
   : IsNExcisive (C := FamCat nat) 1%functor O -> Empty.
 Proof.
@@ -7720,6 +9215,73 @@ Proof.
 Defined.
 
 End StabilizedTowerLimit.
+
+(** *** The dual theorem: direct systems of isomorphisms have their zeroth stage as colimit, by the duality principle. *)
+
+Record CategoricalCotower (C : PreCategory) := {
+  cct_stage : nat -> object C;
+  cct_map : forall n, morphism C (cct_stage n) (cct_stage (S n))
+}.
+
+Definition cotower_op {C : PreCategory} (T : CategoricalCotower C)
+  : CategoricalTower (opposite_precategory C)
+  := Build_CategoricalTower (opposite_precategory C)
+       (cct_stage C T) (cct_map C T).
+
+Record TowerCocone {C : PreCategory} (T : CategoricalCotower C)
+  (W : object C) := {
+  tcc_component : forall n, morphism C (cct_stage C T n) W;
+  tcc_compat : forall n,
+    (tcc_component (S n) o cct_map C T n)%morphism = tcc_component n
+}.
+
+Definition IsTowerColimit {C : PreCategory} (T : CategoricalCotower C)
+  (W : object C) (c : TowerCocone T W) : Type
+  := forall (V : object C) (d : TowerCocone T V),
+     Contr { u : morphism C W V &
+             forall n, (u o tcc_component T W c n)%morphism
+                       = tcc_component T V d n }.
+
+Lemma iso_op {C : PreCategory} {X Y : object C} (f : morphism C X Y)
+  (Hf : IsIsomorphism f)
+  : IsIsomorphism (C := opposite_precategory C)
+      (f : morphism (opposite_precategory C) Y X).
+Proof.
+  destruct Hf as [g [Hgf Hfg]].
+  exists (g : morphism (opposite_precategory C) X Y).
+  exact (Hfg, Hgf).
+Defined.
+
+Definition cocone_to_op_cone {C : PreCategory} (T : CategoricalCotower C)
+  (W : object C) (c : TowerCocone T W)
+  : TowerCone (opposite_precategory C) (cotower_op T) W
+  := Build_TowerCone (opposite_precategory C) (cotower_op T) W
+       (tcc_component T W c) (tcc_compat T W c).
+
+Definition iso_cotower_cocone `{Funext} {C : PreCategory}
+  (T : CategoricalCotower C)
+  (Hiso : forall n, IsIsomorphism (cct_map C T n))
+  : TowerCocone T (cct_stage C T O)
+  := Build_TowerCocone C T (cct_stage C T O)
+       (tc_component (opposite_precategory C) (cotower_op T)
+          (cct_stage C T O)
+          (stab_cone (cotower_op T)
+             (fun n _ => iso_op (cct_map C T n) (Hiso n))))
+       (tc_compat (opposite_precategory C) (cotower_op T)
+          (cct_stage C T O)
+          (stab_cone (cotower_op T)
+             (fun n _ => iso_op (cct_map C T n) (Hiso n)))).
+
+Theorem iso_cotower_colimit `{Funext} {C : PreCategory}
+  (T : CategoricalCotower C)
+  (Hiso : forall n, IsIsomorphism (cct_map C T n))
+  : IsTowerColimit T (cct_stage C T O) (iso_cotower_cocone T Hiso).
+Proof.
+  intros V d.
+  exact (stab_tower_limit (cotower_op T)
+           (fun n _ => iso_op (cct_map C T n) (Hiso n))
+           V (cocone_to_op_cone T V d)).
+Defined.
 
 Definition tower_shift {C : PreCategory} (T : CategoricalTower C) (N : nat)
   : CategoricalTower C
@@ -8138,6 +9700,162 @@ Defined.
 
 End MilnorSequence.
 
+(** *** The abelianized carrier: level families of abelian groups with levelwise biproducts and pushouts, making the excision-style conditions positively testable. *)
+
+Section AbelianFamilies.
+
+Import HoTT.Algebra.AbGroups.
+
+Context `{Funext}.
+
+Definition AbFamObj : Type := nat -> AbGroup.
+
+Definition AbFamHom (X Y : AbFamObj) : Type
+  := forall k, GroupHomomorphism (X k) (Y k).
+
+Lemma abfam_assoc (s d d' d'' : AbFamObj)
+  (m1 : AbFamHom s d) (m2 : AbFamHom d d') (m3 : AbFamHom d' d'')
+  : (fun k => grp_homo_compose (grp_homo_compose (m3 k) (m2 k)) (m1 k))
+    = (fun k => grp_homo_compose (m3 k) (grp_homo_compose (m2 k) (m1 k))).
+Proof.
+  apply path_forall; intro k.
+  exact (equiv_path_grouphomomorphism
+           (g := grp_homo_compose (grp_homo_compose (m3 k) (m2 k)) (m1 k))
+           (h := grp_homo_compose (m3 k) (grp_homo_compose (m2 k) (m1 k)))
+           (fun x => idpath)).
+Defined.
+
+Lemma abfam_left_id (a b : AbFamObj) (f : AbFamHom a b)
+  : (fun k => grp_homo_compose grp_homo_id (f k)) = f.
+Proof.
+  apply path_forall; intro k.
+  exact (equiv_path_grouphomomorphism
+           (g := grp_homo_compose grp_homo_id (f k)) (h := f k)
+           (fun x => idpath)).
+Defined.
+
+Lemma abfam_right_id (a b : AbFamObj) (f : AbFamHom a b)
+  : (fun k => grp_homo_compose (f k) grp_homo_id) = f.
+Proof.
+  apply path_forall; intro k.
+  exact (equiv_path_grouphomomorphism
+           (g := grp_homo_compose (f k) grp_homo_id) (h := f k)
+           (fun x => idpath)).
+Defined.
+
+Lemma abfam_hset (s d : AbFamObj) : IsHSet (AbFamHom s d).
+Proof.
+  exact _.
+Defined.
+
+Definition AbFamCat : PreCategory
+  := @Build_PreCategory AbFamObj AbFamHom
+       (fun X k => grp_homo_id)
+       (fun X Y Z g f k => grp_homo_compose (g k) (f k))
+       abfam_assoc abfam_left_id abfam_right_id abfam_hset.
+
+Definition abfam_zero_obj : AbFamObj := fun _ => abgroup_trivial.
+
+Definition AbFamZero : ZeroObject AbFamCat.
+Proof.
+  refine (Build_ZeroObject AbFamCat abfam_zero_obj _ _).
+Defined.
+
+Definition abfam_biprod (X Y : AbFamObj) : AbFamObj
+  := fun k => ab_biprod (X k) (Y k).
+
+Definition abfam_biprod_inl (X Y : AbFamObj)
+  : AbFamHom X (abfam_biprod X Y)
+  := fun k => ab_biprod_inl.
+
+Definition abfam_biprod_inr (X Y : AbFamObj)
+  : AbFamHom Y (abfam_biprod X Y)
+  := fun k => ab_biprod_inr.
+
+Definition abfam_biprod_pr1 (X Y : AbFamObj)
+  : AbFamHom (abfam_biprod X Y) X
+  := fun k => ab_biprod_pr1.
+
+Definition abfam_biprod_pr2 (X Y : AbFamObj)
+  : AbFamHom (abfam_biprod X Y) Y
+  := fun k => ab_biprod_pr2.
+
+Theorem abfam_biprod_product_universal (X Y Z : AbFamObj)
+  (f : AbFamHom Z X) (g : AbFamHom Z Y)
+  : Contr { h : AbFamHom Z (abfam_biprod X Y) &
+            ((fun k => grp_homo_compose (abfam_biprod_pr1 X Y k) (h k)) = f)
+            * ((fun k => grp_homo_compose (abfam_biprod_pr2 X Y k) (h k)) = g) }.
+Proof.
+  refine (Build_Contr _
+            ((fun k => grp_prod_corec (f k) (g k)) ;
+             (path_forall _ _ (fun k =>
+                equiv_path_grouphomomorphism
+                  (g := grp_homo_compose (abfam_biprod_pr1 X Y k)
+                          (grp_prod_corec (f k) (g k)))
+                  (h := f k) (fun x => idpath)) ,
+              path_forall _ _ (fun k =>
+                equiv_path_grouphomomorphism
+                  (g := grp_homo_compose (abfam_biprod_pr2 X Y k)
+                          (grp_prod_corec (f k) (g k)))
+                  (h := g k) (fun x => idpath)))) _).
+  intros [h [e1 e2]].
+  apply path_sigma_hprop.
+  apply path_forall; intro k.
+  apply equiv_path_grouphomomorphism; intro x.
+  apply path_prod.
+  - exact (ap10 (ap grp_homo_map (apD10 e1^ k)) x).
+  - exact (ap10 (ap grp_homo_map (apD10 e2^ k)) x).
+Defined.
+
+Definition abfam_pushout {A B C : AbFamObj}
+  (f : AbFamHom A B) (g : AbFamHom A C)
+  : AbFamObj
+  := fun k => ab_pushout (f k) (g k).
+
+Definition abfam_pushout_inl {A B C : AbFamObj}
+  (f : AbFamHom A B) (g : AbFamHom A C)
+  : AbFamHom B (abfam_pushout f g)
+  := fun k => ab_pushout_inl.
+
+Definition abfam_pushout_inr {A B C : AbFamObj}
+  (f : AbFamHom A B) (g : AbFamHom A C)
+  : AbFamHom C (abfam_pushout f g)
+  := fun k => ab_pushout_inr.
+
+Theorem abfam_pushout_commsq {A B C : AbFamObj}
+  (f : AbFamHom A B) (g : AbFamHom A C)
+  : (fun k => grp_homo_compose (abfam_pushout_inl f g k) (f k))
+    = (fun k => grp_homo_compose (abfam_pushout_inr f g k) (g k)).
+Proof.
+  apply path_forall; intro k.
+  apply equiv_path_grouphomomorphism; intro x.
+  exact (ab_pushout_commsq x).
+Defined.
+
+Theorem abfam_pushout_rec {A B C Y : AbFamObj}
+  (f : AbFamHom A B) (g : AbFamHom A C)
+  (b : AbFamHom B Y) (c : AbFamHom C Y)
+  (p : (fun k => grp_homo_compose (b k) (f k))
+       = (fun k => grp_homo_compose (c k) (g k)))
+  : { phi : AbFamHom (abfam_pushout f g) Y &
+      (((fun k => grp_homo_compose (phi k) (abfam_pushout_inl f g k)) = b)
+       * ((fun k => grp_homo_compose (phi k) (abfam_pushout_inr f g k)) = c))%type }.
+Proof.
+  exists (fun k => ab_pushout_rec (b k) (c k)
+                     (fun x => ap10 (ap grp_homo_map (apD10 p k)) x)).
+  split.
+  - apply path_forall; intro k.
+    apply equiv_path_grouphomomorphism; intro x.
+    exact (ab_pushout_rec_beta_left (f k) (g k) (b k) (c k)
+             (fun y => ap10 (ap grp_homo_map (apD10 p k)) y) x).
+  - apply path_forall; intro k.
+    apply equiv_path_grouphomomorphism; intro x.
+    exact (ab_pushout_rec_beta_right (f k) (g k) (b k) (c k)
+             (fun y => ap10 (ap grp_homo_map (apD10 p k)) y) x).
+Defined.
+
+End AbelianFamilies.
+
 (*******************************************************************************)
 (*  BIGRADED WEIGHTED SPECTRAL SEQUENCES                                       *)
 (*******************************************************************************)
@@ -8425,6 +10143,41 @@ Definition CompatibleFamily (P : Presheaf) (X : CScheme F) (U : Cover X)
             (f : CMor W (cov_obj X U i)) (g : CMor W (cov_obj X U j)),
      (fun w => cov_map X U i (f w)) = (fun w => cov_map X U j (g w)) ->
      psh_res P W (cov_obj X U i) f (s i) = psh_res P W (cov_obj X U j) g (s j).
+
+(** Compatibility restated on the pullbacks the quantification over all test schemes silently encodes. *)
+
+Definition CompatibleOnPullbacks (P : Presheaf) (X : CScheme F)
+  (U : Cover X)
+  (s : forall i, psh_val P (cov_obj X U i))
+  : Type
+  := forall i j,
+     psh_res P (cfiber_product (cov_map X U i) (cov_map X U j))
+       (cov_obj X U i) (cfp_pr1 (cov_map X U i) (cov_map X U j)) (s i)
+     = psh_res P (cfiber_product (cov_map X U i) (cov_map X U j))
+       (cov_obj X U j) (cfp_pr2 (cov_map X U i) (cov_map X U j)) (s j).
+
+Theorem compatible_iff_pullbacks (P : Presheaf) (X : CScheme F)
+  (U : Cover X) (s : forall i, psh_val P (cov_obj X U i))
+  : ((CompatibleFamily P X U s -> CompatibleOnPullbacks P X U s)
+     * (CompatibleOnPullbacks P X U s -> CompatibleFamily P X U s))%type.
+Proof.
+  split.
+  - intros Hc i j.
+    exact (Hc (cfiber_product (cov_map X U i) (cov_map X U j)) i j
+             (cfp_pr1 _ _) (cfp_pr2 _ _) (cfp_comm _ _)).
+  - intros Hp W i j fW gW Hcomm.
+    pose (u := (fun w => ((fW w , gW w) ; apD10 Hcomm w))
+               : CMor W (cfiber_product (cov_map X U i) (cov_map X U j))).
+    refine (psh_res_comp P W
+              (cfiber_product (cov_map X U i) (cov_map X U j))
+              (cov_obj X U i) u (cfp_pr1 _ _) (s i) @ _).
+    refine (ap (psh_res P W
+                 (cfiber_product (cov_map X U i) (cov_map X U j)) u)
+              (Hp i j) @ _).
+    exact (psh_res_comp P W
+             (cfiber_product (cov_map X U i) (cov_map X U j))
+             (cov_obj X U j) u (cfp_pr2 _ _) (s j))^.
+Defined.
 
 Definition IsSheaf (P : Presheaf) : Type
   := forall (X : CScheme F) (U : Cover X)
@@ -8749,18 +10502,6 @@ Proof.
     + exact (IHk n E).
 Defined.
 
-Lemma nat_leb_true_le (k d : nat) : nat_leb k d = true -> nat_le k d.
-Proof.
-  revert d.
-  induction k.
-  - intros d _.
-    exact tt.
-  - intros d E.
-    destruct d.
-    + exact (Empty_rec _ (false_ne_true E)).
-    + exact (IHk d E).
-Defined.
-
 (** The obstruction measure: one when the layer above the stage is occupied, zero otherwise. *)
 
 Definition fam_obstruction (X : FamObj nat) (n : nat) : QPos
@@ -9017,6 +10758,11 @@ Defined.
 
 Definition full_below (d : nat) : FamObj nat := fun k => nat_leb k d.
 
+(** *** The scheme world meets the tower world: level families derived from the geometry, towers run on them, and the affine-line functor changes the stage through the dimension. *)
+
+Definition scheme_level_family {F : CField} (X : CScheme F) : FamObj nat
+  := full_below (cs_dim F X).
+
 Lemma full_below_supported (d : nat)
   : forall k, nat_lt d k -> full_below d k = false.
 Proof.
@@ -9098,6 +10844,37 @@ Proof.
            (g k) (apD10 Hgf k)).
 Defined.
 
+(** *** Converse detection: an isomorphic tower map forces its layer to vanish, so layers never over-report. *)
+
+Theorem fam_iso_implies_layer_zero `{Funext} (n : nat) (X : FamObj nat)
+  (Hiso : IsIsomorphism (C := FamCat nat)
+            (fam_change (fam_guard_P (S n)) (fam_guard_P n) X))
+  : fam_trunc (fam_guard_D n) X = (fam_zero : FamObj nat).
+Proof.
+  apply path_forall; intro k.
+  destruct (bool_dec_eq (nat_eqb k (S n))) as [He | He].
+  - destruct (bool_dec_eq (X (S n))) as [HX | HX].
+    + apply Empty_rec.
+      exact (fam_change_not_iso_of_gap
+               (fam_guard_P (S n)) (fam_guard_P n) X (S n)
+               (nat_leb_refl (S n)) (nat_leb_Sn_n n) HX Hiso).
+    + refine (ap (fun m => truncAt (nat_eqb m (S n)) (X m))
+                (nat_eqb_true_path k (S n) He) @ _).
+      refine (ap (fun b => truncAt b (X (S n))) (nat_eqb_refl (S n)) @ _).
+      exact HX.
+  - exact (ap (fun b => truncAt b (X k)) He).
+Defined.
+
+Theorem fam_layers_never_over_report `{Funext} (n : nat) (X : FamObj nat)
+  (Hiso : IsIsomorphism
+            (gtd_layer_at (gtwl_data FamPreStable FamIdReduced
+               FamGoodwillieTower) n X))
+  : object_of (gtwl_D FamPreStable FamIdReduced FamGoodwillieTower n) X
+    = zero FamPreStable (ps_zero FamPreStable).
+Proof.
+  exact (fam_iso_implies_layer_zero n X Hiso).
+Defined.
+
 Theorem full_below_genuine_stage `{Funext} (d : nat)
   : ((TowerStabilizesAt (fam_P_tower (full_below (S d))) (S d))
      * (IsIsomorphism (C := FamCat nat)
@@ -9115,6 +10892,36 @@ Proof.
     + exact (nat_leb_refl (S d)).
 Defined.
 
+(** The tower runs on the geometry-derived family of every concrete scheme, stabilizing at its dimension, and the affine-line functor changes the stage: the stage sufficient for X provably fails for X times the affine line. *)
+
+Theorem scheme_tower_runs `{Funext} (F : CField) (X : CScheme F)
+  : TowerStabilizesAt (fam_P_tower (scheme_level_family X)) (cs_dim F X).
+Proof.
+  intros n Hn.
+  apply fam_tower_iso_of_level_empty.
+  exact (full_below_supported (cs_dim F X) (S n)
+           (nat_le_lt_trans (cs_dim F X) n (S n) Hn (nat_lt_S n))).
+Defined.
+
+Theorem cs_dim_changes_stage `{Funext} (F : CField) (X : CScheme F)
+  : ((TowerStabilizesAt (fam_P_tower (scheme_level_family X)) (cs_dim F X))
+     * (IsIsomorphism (C := FamCat nat)
+          (fam_change (fam_guard_P (S (cs_dim F X)))
+             (fam_guard_P (cs_dim F X))
+             (scheme_level_family (object_of (CSchA1Functor F) X)))
+        -> Empty))%type.
+Proof.
+  split.
+  - exact (scheme_tower_runs F X).
+  - apply (fam_change_not_iso_of_gap _ _ _ (S (cs_dim F X))).
+    + exact (nat_leb_refl (S (cs_dim F X))).
+    + exact (nat_leb_Sn_n (cs_dim F X)).
+    + refine (ap (nat_leb (S (cs_dim F X)))
+               (nat_add_succ_r (cs_dim F X) O
+                  @ ap S (nat_add_zero_r (cs_dim F X))) @ _).
+      exact (nat_leb_refl (S (cs_dim F X))).
+Defined.
+
 (** *** Connectivity: the weight bound, the support bound, and fiber connectivity growth are equivalent, the in-model analyticity criterion. *)
 
 Definition FamConnGT (X : FamObj nat) (m : nat) : Type
@@ -9129,18 +10936,6 @@ Proof.
   rewrite nat_add_zero_r in E.
   rewrite nat_mul_one_r in E.
   exact E.
-Defined.
-
-Lemma nat_le_of_lt_S (d n : nat) : nat_lt d (S n) -> nat_le d n.
-Proof.
-  revert n.
-  induction d.
-  - intros n _.
-    exact tt.
-  - intros n Hlt.
-    destruct n.
-    + destruct d; destruct Hlt.
-    + exact (IHd n Hlt).
 Defined.
 
 Theorem fam_bounded_to_supported (X : FamObj nat) (d : nat)
