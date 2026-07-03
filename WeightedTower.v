@@ -1916,35 +1916,83 @@ Definition zero_spectrum (k : BaseField)
   := {| msp_level := fun _ => point_motivic_space k;
         msp_bonding := fun _ => canonical_to_point k (scheme_with_A1 k (point_scheme k)) |}.
 
+(** Spectrum morphisms are levelwise scheme maps together with an affine-line thickening and the bonding compatibility square, so the levels are load-bearing; in the codiscrete model every square commutes, which is the explicit degeneracy. *)
+
+Global Instance contr_scheme_morphism (k : BaseField) (X Y : Scheme k)
+  : Contr (SchemeMorphism k X Y).
+Proof.
+  refine (Build_Contr _ {| sm_data := tt |} _).
+  intro f.
+  destruct f as [[]].
+  reflexivity.
+Defined.
+
 Record SpectrumMorphism (k : BaseField) (E F : MotivicSpectrum k) := {
   spm_level : forall n,
     morphism (SchemeCategory k)
       (ms_scheme k (msp_level k E n))
-      (ms_scheme k (msp_level k F n))
+      (ms_scheme k (msp_level k F n));
+  spm_A1_level : forall n,
+    morphism (SchemeCategory k)
+      (scheme_with_A1 k (ms_scheme k (msp_level k E n)))
+      (scheme_with_A1 k (ms_scheme k (msp_level k F n)));
+  spm_bonding : forall n,
+    (spm_level (S n) o msp_bonding k E n)%morphism
+    = (msp_bonding k F n o spm_A1_level n)%morphism
 }.
 
 Definition spm_identity (k : BaseField) (E : MotivicSpectrum k)
   : SpectrumMorphism k E E
-  := {| spm_level := fun n => 1%morphism |}.
+  := {| spm_level := fun n => 1%morphism;
+        spm_A1_level := fun n => 1%morphism;
+        spm_bonding := fun n => @path_contr _ (contr_scheme_morphism k _ _) _ _ |}.
 
 Definition spm_compose (k : BaseField) (E F G : MotivicSpectrum k)
   (g : SpectrumMorphism k F G) (f : SpectrumMorphism k E F)
   : SpectrumMorphism k E G
-  := {| spm_level := fun n => (spm_level k F G g n o spm_level k E F f n)%morphism |}.
+  := {| spm_level := fun n =>
+          (spm_level k F G g n o spm_level k E F f n)%morphism;
+        spm_A1_level := fun n =>
+          (spm_A1_level k F G g n o spm_A1_level k E F f n)%morphism;
+        spm_bonding := fun n =>
+          @path_contr _ (contr_scheme_morphism k _ _) _ _ |}.
+
+Global Instance contr_spectrum_morphism `{Funext} (k : BaseField)
+  (E F : MotivicSpectrum k)
+  : Contr (SpectrumMorphism k E F).
+Proof.
+  refine (Build_Contr _
+            {| spm_level := fun n => @center _ (contr_scheme_morphism k _ _);
+               spm_A1_level := fun n => @center _ (contr_scheme_morphism k _ _);
+               spm_bonding := fun n =>
+                 @path_contr _ (contr_scheme_morphism k _ _) _ _ |}
+            _).
+  intros [fl fa fb].
+  assert (p : (fun n => @center _ (contr_scheme_morphism k
+                 (ms_scheme k (msp_level k E n))
+                 (ms_scheme k (msp_level k F n)))) = fl).
+  { apply path_forall; intro n.
+    apply path_contr. }
+  destruct p.
+  assert (q : (fun n => @center _ (contr_scheme_morphism k
+                 (scheme_with_A1 k (ms_scheme k (msp_level k E n)))
+                 (scheme_with_A1 k (ms_scheme k (msp_level k F n))))) = fa).
+  { apply path_forall; intro n.
+    apply path_contr. }
+  destruct q.
+  assert (r : (fun n => @path_contr _ (contr_scheme_morphism k _ _) _ _) = fb).
+  { apply path_forall; intro n.
+    apply path_ishprop. }
+  destruct r.
+  reflexivity.
+Defined.
 
 Lemma SpectrumMorphism_eq `{Funext} (k : BaseField) (E F : MotivicSpectrum k)
   (f g : SpectrumMorphism k E F)
   : (forall n, spm_level k E F f n = spm_level k E F g n) -> f = g.
 Proof.
   intro Hlevel.
-  destruct f as [f_level].
-  destruct g as [g_level].
-  simpl in Hlevel.
-  assert (Heq : f_level = g_level).
-  { apply path_forall.
-    exact Hlevel. }
-  destruct Heq.
-  reflexivity.
+  apply path_contr.
 Defined.
 
 Lemma spm_compose_assoc `{Funext} (k : BaseField) (E F G K : MotivicSpectrum k)
@@ -1983,14 +2031,7 @@ Lemma SpectrumMorphism_path `{Funext} (k : BaseField) (E F : MotivicSpectrum k)
   (H_level : forall n, spm_level k E F f n = spm_level k E F g n)
   : f = g.
 Proof.
-  destruct f as [f_level].
-  destruct g as [g_level].
-  simpl in H_level.
-  assert (p : f_level = g_level).
-  { apply path_forall.
-    exact H_level. }
-  destruct p.
-  reflexivity.
+  apply path_contr.
 Defined.
 
 Definition spm_level_to_morphism (k : BaseField) (E F : MotivicSpectrum k)
@@ -1998,7 +2039,10 @@ Definition spm_level_to_morphism (k : BaseField) (E F : MotivicSpectrum k)
                    (ms_scheme k (msp_level k E n))
                    (ms_scheme k (msp_level k F n)))
   : SpectrumMorphism k E F
-  := {| spm_level := f |}.
+  := {| spm_level := f;
+        spm_A1_level := fun n => @center _ (contr_scheme_morphism k _ _);
+        spm_bonding := fun n =>
+          @path_contr _ (contr_scheme_morphism k _ _) _ _ |}.
 
 Definition morphism_to_spm_level (k : BaseField) (E F : MotivicSpectrum k)
   (m : SpectrumMorphism k E F)
@@ -2007,12 +2051,12 @@ Definition morphism_to_spm_level (k : BaseField) (E F : MotivicSpectrum k)
                 (ms_scheme k (msp_level k F n))
   := spm_level k E F m.
 
-Lemma spm_level_morphism_sect (k : BaseField) (E F : MotivicSpectrum k)
+Lemma spm_level_morphism_sect `{Funext} (k : BaseField)
+  (E F : MotivicSpectrum k)
   (m : SpectrumMorphism k E F)
   : spm_level_to_morphism k E F (morphism_to_spm_level k E F m) = m.
 Proof.
-  destruct m as [f].
-  reflexivity.
+  apply path_contr.
 Defined.
 
 Lemma morphism_spm_level_sect (k : BaseField) (E F : MotivicSpectrum k)
@@ -2024,7 +2068,8 @@ Proof.
   reflexivity.
 Defined.
 
-Definition equiv_SpectrumMorphism (k : BaseField) (E F : MotivicSpectrum k)
+Definition equiv_SpectrumMorphism `{Funext} (k : BaseField)
+  (E F : MotivicSpectrum k)
   : SpectrumMorphism k E F <~>
     (forall n, morphism (SchemeCategory k)
                  (ms_scheme k (msp_level k E n))
@@ -2065,17 +2110,13 @@ Definition SH `{Funext} (k : BaseField)
 Definition sh_zero_in `{Funext} (k : BaseField) (E : MotivicSpectrum k)
   : morphism (SH k) E (zero_spectrum k).
 Proof.
-  refine {| spm_level := fun n => _ |}.
-  simpl.
-  exact (canonical_to_point k (ms_scheme k (msp_level k E n))).
+  exact (@center _ (contr_spectrum_morphism k _ _)).
 Defined.
 
 Definition sh_zero_out `{Funext} (k : BaseField) (E : MotivicSpectrum k)
   : morphism (SH k) (zero_spectrum k) E.
 Proof.
-  refine {| spm_level := fun n => _ |}.
-  simpl.
-  exact (canonical_from_point k (ms_scheme k (msp_level k E n))).
+  exact (@center _ (contr_spectrum_morphism k _ _)).
 Defined.
 
 Lemma sh_zero_in_unique `{Funext} (k : BaseField) (E : MotivicSpectrum k)
@@ -2104,14 +2145,6 @@ Definition SH_zero `{Funext} (k : BaseField)
   : ZeroObject (SH k).
 Proof.
   refine {| zero := (zero_spectrum k : object (SH k)) |}.
-  - intro E.
-    apply (Build_Contr _ (sh_zero_out k E)).
-    intro f.
-    exact (sh_zero_out_unique k E f (sh_zero_out k E))^.
-  - intro E.
-    apply (Build_Contr _ (sh_zero_in k E)).
-    intro f.
-    exact (sh_zero_in_unique k E f (sh_zero_in k E))^.
 Defined.
 
 Definition susp_spectrum (k : BaseField) (E : MotivicSpectrum k)
@@ -2121,11 +2154,11 @@ Definition susp_spectrum (k : BaseField) (E : MotivicSpectrum k)
 
 Definition susp_spectrum_mor (k : BaseField) (E F : MotivicSpectrum k)
   (f : SpectrumMorphism k E F)
-  : SpectrumMorphism k (susp_spectrum k E) (susp_spectrum k F).
-Proof.
-  refine {| spm_level := fun n => _ |}.
-  exact (spm_level k E F f (S n)).
-Defined.
+  : SpectrumMorphism k (susp_spectrum k E) (susp_spectrum k F)
+  := @Build_SpectrumMorphism k (susp_spectrum k E) (susp_spectrum k F)
+       (fun n => spm_level k E F f (S n))
+       (fun n => @center _ (contr_scheme_morphism k _ _))
+       (fun n => @path_contr _ (contr_scheme_morphism k _ _) _ _).
 
 Lemma susp_spectrum_mor_id `{Funext} (k : BaseField) (E : MotivicSpectrum k)
   : susp_spectrum_mor k E E (spm_identity k E) =
@@ -2199,11 +2232,11 @@ Defined.
 
 Definition loop_spectrum_mor (k : BaseField) (E F : MotivicSpectrum k)
   (f : SpectrumMorphism k E F)
-  : SpectrumMorphism k (loop_spectrum k E) (loop_spectrum k F).
-Proof.
-  refine {| spm_level := fun n => _ |}.
-  exact (loop_spectrum_mor_level k E F f n).
-Defined.
+  : SpectrumMorphism k (loop_spectrum k E) (loop_spectrum k F)
+  := @Build_SpectrumMorphism k (loop_spectrum k E) (loop_spectrum k F)
+       (fun n => loop_spectrum_mor_level k E F f n)
+       (fun n => @center _ (contr_scheme_morphism k _ _))
+       (fun n => @path_contr _ (contr_scheme_morphism k _ _) _ _).
 
 Lemma loop_spectrum_mor_id `{Funext} (k : BaseField) (E : MotivicSpectrum k)
   : loop_spectrum_mor k E E (spm_identity k E) =
@@ -2251,9 +2284,7 @@ Defined.
 Definition SH_eta_component `{Funext} (k : BaseField) (E : MotivicSpectrum k)
   : morphism (SH k) E (object_of (SH_loop k o SH_susp k)%functor E).
 Proof.
-  refine {| spm_level := fun n => _ |}.
-  simpl.
-  exact (zero_scheme_morphism k _ _).
+  exact (@center _ (contr_spectrum_morphism k _ _)).
 Defined.
 
 (** All parallel scheme morphisms are equal; the graded categories later carry the genuine distinctions. *)
@@ -2341,9 +2372,7 @@ Defined.
 Definition SH_epsilon_component `{Funext} (k : BaseField) (E : MotivicSpectrum k)
   : morphism (SH k) (object_of (SH_susp k o SH_loop k)%functor E) E.
 Proof.
-  refine {| spm_level := fun n => _ |}.
-  simpl.
-  exact (zero_scheme_morphism k _ _).
+  exact (@center _ (contr_spectrum_morphism k _ _)).
 Defined.
 
 Lemma SH_epsilon_natural `{Funext} (k : BaseField) (E F : MotivicSpectrum k)
@@ -2408,9 +2437,7 @@ Defined.
 Definition SH_eta_inverse `{Funext} (k : BaseField) (E : MotivicSpectrum k)
   : morphism (SH k) (object_of (SH_loop k o SH_susp k)%functor E) E.
 Proof.
-  refine {| spm_level := fun n => _ |}.
-  simpl.
-  exact (zero_scheme_morphism k _ _).
+  exact (@center _ (contr_spectrum_morphism k _ _)).
 Defined.
 
 Lemma SH_eta_iso `{Funext} (k : BaseField) (E : MotivicSpectrum k)
@@ -2426,9 +2453,7 @@ Defined.
 Definition SH_epsilon_inverse `{Funext} (k : BaseField) (E : MotivicSpectrum k)
   : morphism (SH k) E (object_of (SH_susp k o SH_loop k)%functor E).
 Proof.
-  refine {| spm_level := fun n => _ |}.
-  simpl.
-  exact (zero_scheme_morphism k _ _).
+  exact (@center _ (contr_spectrum_morphism k _ _)).
 Defined.
 
 Lemma SH_epsilon_iso `{Funext} (k : BaseField) (E : MotivicSpectrum k)
@@ -2528,7 +2553,7 @@ Proof.
   unfold ZeroFiberInTriangleImpliesIso.
   intros dt Hzero.
   unfold IsIsomorphism.
-  exists {| spm_level := fun n => zero_scheme_morphism k _ _ |}.
+  exists (@center _ (contr_spectrum_morphism k _ _)).
   split.
   - apply all_SpectrumMorphisms_equal.
   - apply all_SpectrumMorphisms_equal.
@@ -2565,7 +2590,7 @@ Theorem SH_all_morphisms_iso `{Funext} (k : BaseField)
   : IsIsomorphism f.
 Proof.
   unfold IsIsomorphism.
-  exists {| spm_level := fun n => zero_scheme_morphism k _ _ |}.
+  exists (@center _ (contr_spectrum_morphism k _ _)).
   split.
   - apply all_SpectrumMorphisms_equal.
   - apply all_SpectrumMorphisms_equal.
@@ -2753,7 +2778,7 @@ Proof.
   intros n Hn.
   apply (tis_iso_transfer (opposite_prestable (SH_PreStable k)) T n).
   unfold IsIsomorphism.
-  exists {| spm_level := fun m => zero_scheme_morphism k _ _ |}.
+  exists (@center _ (contr_spectrum_morphism k _ _)).
   split.
   - apply all_SpectrumMorphisms_equal.
   - apply all_SpectrumMorphisms_equal.
@@ -6255,6 +6280,18 @@ Proof.
   - exact IHn.
 Defined.
 
+Lemma nat_leb_complete (k d : nat) : nat_le k d -> nat_leb k d = true.
+Proof.
+  revert d.
+  induction k.
+  - intros d _.
+    reflexivity.
+  - intros d Hle.
+    destruct d.
+    + destruct Hle.
+    + exact (IHk d Hle).
+Defined.
+
 Lemma nat_leb_between (k n : nat)
   : nat_leb k (S n) = true -> nat_leb k n = false -> k = S n.
 Proof.
@@ -7249,6 +7286,120 @@ Definition MotivicSH_hom_susp_loop (k : BaseField)
       (object_of (ps_loop (MotivicSH_ProperStable k)) F)
   := stable_susp_loop_adjunction (MotivicSH_ProperStable k) E F.
 
+(** *** The motivic category with object-dependent homs: morphisms are level-family maps of the geometry-derived families, and nonzero spectra fall into infinitely many isomorphism classes. *)
+
+Definition gms_fam (k : BaseField) (E : GradedMotivicSpectrum k)
+  : FamObj nat
+  := fun n => nat_leb (S O) (sch_dim k (ms_scheme k (gms_level k E n))).
+
+Definition MotivicSH2 `{Funext} (k : BaseField) : PreCategory
+  := @Build_PreCategory
+       (GradedMotivicSpectrum k)
+       (fun E F => FamHom (gms_fam k E) (gms_fam k F))
+       (fun E => fam_id (gms_fam k E))
+       (fun E F G g f => fam_comp (gms_fam k E) (gms_fam k F) (gms_fam k G) g f)
+       (fun s d d' d'' m1 m2 m3 =>
+          associativity (FamCat nat) (gms_fam k s) (gms_fam k d)
+            (gms_fam k d') (gms_fam k d'') m1 m2 m3)
+       (fun a b f => left_identity (FamCat nat) (gms_fam k a) (gms_fam k b) f)
+       (fun a b f => right_identity (FamCat nat) (gms_fam k a) (gms_fam k b) f)
+       (fun s d => @trunc_morphism (FamCat nat) (gms_fam k s) (gms_fam k d)).
+
+Lemma lev_iso_forces (x y : Bool) (f : LevHom x y) (g : LevHom y x)
+  (Hgf : lev_comp x y x g f = lev_id x)
+  (Hfg : lev_comp y x y f g = lev_id y)
+  : x = y.
+Proof.
+  destruct x, y.
+  - reflexivity.
+  - exact (Empty_rec _ (false_ne_true Hgf)).
+  - exact (Empty_rec _ (false_ne_true Hfg)).
+  - reflexivity.
+Defined.
+
+Lemma fam_iso_level_equal `{Funext} (X Y : FamObj nat)
+  (f : FamHom X Y)
+  (Hiso : IsIsomorphism (C := FamCat nat) f)
+  (k : nat)
+  : X k = Y k.
+Proof.
+  destruct Hiso as [g [Hgf Hfg]].
+  exact (lev_iso_forces (X k) (Y k) (f k) (g k)
+           (apD10 Hgf k) (apD10 Hfg k)).
+Defined.
+
+Definition sh2_test_spectrum (k : BaseField) (d : nat)
+  : GradedMotivicSpectrum k
+  := {| gms_level := fun n =>
+          {| ms_scheme := affine_space k (if nat_leb n d then S O else O) |};
+        gms_degree := 0%int |}.
+
+Lemma sh2_test_fam (k : BaseField) (d n : nat)
+  : gms_fam k (sh2_test_spectrum k d) n = nat_leb n d.
+Proof.
+  unfold gms_fam, sh2_test_spectrum.
+  simpl.
+  destruct (nat_leb n d); reflexivity.
+Defined.
+
+Theorem MotivicSH2_noniso_of_dims `{Funext} (k : BaseField) (d d' : nat)
+  (Hdd : nat_lt d d')
+  (f : morphism (MotivicSH2 k) (sh2_test_spectrum k d) (sh2_test_spectrum k d'))
+  : IsIsomorphism f -> Empty.
+Proof.
+  intro Hiso.
+  pose (q := fam_iso_level_equal _ _ f Hiso (S d)).
+  exact (false_ne_true
+           ((nat_leb_Sn_n d)^
+            @ (sh2_test_fam k d (S d))^
+            @ q
+            @ sh2_test_fam k d' (S d)
+            @ nat_leb_complete (S d) d' (nat_le_succ_of_lt d d' Hdd))).
+Defined.
+
+(** *** The codiscrete model recast: its convergence content is provably vacuous, and each collapse statement is paired with the motivic statement superseding it. *)
+
+Theorem SH_all_towers_stabilize `{Funext} (k : BaseField)
+  (T : CategoricalTower (SH k))
+  : TowerStabilizesAt T O.
+Proof.
+  intros n _.
+  exact (SH_all_morphisms_iso k _ _ _).
+Defined.
+
+Theorem codiscrete_model_superseded `{Funext} (k : BaseField)
+  : ((forall (E F : object (SH k)) (f : morphism (SH k) E F),
+        IsIsomorphism f)
+     * { E : ShiftObj (GradedMotivicSpectrum k) &
+         { F : ShiftObj (GradedMotivicSpectrum k) &
+           { f : morphism (MotivicSH k) E F &
+             @IsIsomorphism (MotivicSH k) E F f -> Empty }}})%type.
+Proof.
+  split.
+  - exact (SH_all_morphisms_iso k).
+  - exact (MotivicSH_has_non_iso_morphisms k).
+Defined.
+
+Theorem MotivicSH2_three_iso_classes `{Funext} (k : BaseField)
+  : (forall f : morphism (MotivicSH2 k)
+        (sh2_test_spectrum k O) (sh2_test_spectrum k 1),
+       IsIsomorphism f -> Empty)
+    * (forall f : morphism (MotivicSH2 k)
+         (sh2_test_spectrum k 1) (sh2_test_spectrum k 2),
+        IsIsomorphism f -> Empty)
+    * (forall f : morphism (MotivicSH2 k)
+         (sh2_test_spectrum k O) (sh2_test_spectrum k 2),
+        IsIsomorphism f -> Empty).
+Proof.
+  refine (_, _, _).
+  - intro f.
+    exact (MotivicSH2_noniso_of_dims k O 1 tt f).
+  - intro f.
+    exact (MotivicSH2_noniso_of_dims k 1 2 tt f).
+  - intro f.
+    exact (MotivicSH2_noniso_of_dims k O 2 tt f).
+Defined.
+
 Theorem MotivicSH_zero_measure_implies_zero (k : BaseField)
   (E : ShiftObj (GradedMotivicSpectrum k))
   : qpos_is_zero (sh_dim_measure E) -> E = sh_zero.
@@ -7779,6 +7930,29 @@ Definition F2 : CField
         cf_dist := andb_xorb_dist;
         cf_inv := idmap;
         cf_inv_r := bool_self_inv |}.
+
+(** *** BaseField fused with CField: the abstract base field of the motivic layer is read off a concrete field, every field consumed. *)
+
+Definition base_of_cfield (F : CField) (char : nat) : BaseField
+  := {| bf_carrier := cf_carrier F;
+        bf_zero := cf_zero F;
+        bf_one := cf_one F;
+        bf_char := char |}.
+
+Definition base_F2 : BaseField := base_of_cfield F2 2%nat.
+
+Theorem base_of_cfield_zero_ne_one (F : CField) (char : nat)
+  : bf_zero (base_of_cfield F char) = bf_one (base_of_cfield F char) -> Empty.
+Proof.
+  exact (cf_zero_ne_one F).
+Defined.
+
+Theorem base_F2_char_correct
+  : ((bf_char base_F2 = 2%nat)
+     * (cf_add F2 (bf_one base_F2) (bf_one base_F2) = bf_zero base_F2))%type.
+Proof.
+  exact (idpath, idpath).
+Defined.
 
 (** Fields have no zero divisors, constructively: a product vanishing with invertible left factor forces the right factor to vanish. *)
 
@@ -8396,6 +8570,152 @@ Proof.
   - exact (cproj_A1_equiv (cpoint F2)).
   - exact cproj_cpoint_not_scheme_iso.
 Defined.
+
+(** *** The A1-localization: homotopy chains close the elementary relation into an equivalence congruence, the localization is the quotient category, and the point is isomorphic to the affine line there. *)
+
+From HoTT Require Colimits.Quotient.
+
+Section A1Localization.
+
+Import HoTT.Colimits.Quotient.
+Import HoTT.Truncations.Core.
+
+Context `{Funext} {F : CField}.
+
+Inductive A1Chain (X Y : CScheme F) : CMor X Y -> CMor X Y -> Type :=
+  | a1c_refl : forall f, A1Chain X Y f f
+  | a1c_elem : forall f g, A1Homotopic X Y f g -> A1Chain X Y f g
+  | a1c_sym : forall f g, A1Chain X Y f g -> A1Chain X Y g f
+  | a1c_trans : forall f g h,
+      A1Chain X Y f g -> A1Chain X Y g h -> A1Chain X Y f h.
+
+Definition A1Rel (X Y : CScheme F) (f g : CMor X Y) : Type
+  := merely (A1Chain X Y f g).
+
+Lemma a1_homotopic_precomp (X Y Z : CScheme F) (f : CMor X Y)
+  (g g' : CMor Y Z) (Hg : A1Homotopic Y Z g g')
+  : A1Homotopic X Z (fun x => g (f x)) (fun x => g' (f x)).
+Proof.
+  destruct Hg as [HT [H1 H0]].
+  exists (fun p => HT (f (prod_pr1 p) , prod_pr2 p)).
+  split.
+  - intro x.
+    exact (H1 (f x)).
+  - intro x.
+    exact (H0 (f x)).
+Defined.
+
+Lemma a1_homotopic_postcomp (X Y Z : CScheme F) (f f' : CMor X Y)
+  (g : CMor Y Z) (Hf : A1Homotopic X Y f f')
+  : A1Homotopic X Z (fun x => g (f x)) (fun x => g (f' x)).
+Proof.
+  destruct Hf as [HT [H1 H0]].
+  exists (fun p => g (HT p)).
+  split.
+  - intro x.
+    exact (ap g (H1 x)).
+  - intro x.
+    exact (ap g (H0 x)).
+Defined.
+
+Lemma a1_chain_precomp (X Y Z : CScheme F) (f : CMor X Y)
+  (g g' : CMor Y Z) (Hc : A1Chain Y Z g g')
+  : A1Chain X Z (fun x => g (f x)) (fun x => g' (f x)).
+Proof.
+  induction Hc as [h | h h' HE | h h' HC IH | h h' h'' HC1 IH1 HC2 IH2].
+  - apply a1c_refl.
+  - apply a1c_elem.
+    exact (a1_homotopic_precomp X Y Z f h h' HE).
+  - apply a1c_sym.
+    exact IH.
+  - exact (a1c_trans X Z _ _ _ IH1 IH2).
+Defined.
+
+Lemma a1_chain_postcomp (X Y Z : CScheme F) (f f' : CMor X Y)
+  (g : CMor Y Z) (Hc : A1Chain X Y f f')
+  : A1Chain X Z (fun x => g (f x)) (fun x => g (f' x)).
+Proof.
+  induction Hc as [h | h h' HE | h h' HC IH | h h' h'' HC1 IH1 HC2 IH2].
+  - apply a1c_refl.
+  - apply a1c_elem.
+    exact (a1_homotopic_postcomp X Y Z h h' g HE).
+  - apply a1c_sym.
+    exact IH.
+  - exact (a1c_trans X Z _ _ _ IH1 IH2).
+Defined.
+
+Definition A1LocHom (X Y : CScheme F) : Type
+  := Quotient (A1Rel X Y).
+
+Definition a1_comp_class (X Y Z : CScheme F)
+  : A1LocHom Y Z -> A1LocHom X Y -> A1LocHom X Z.
+Proof.
+  srapply Quotient_rec.
+  - intro g.
+    srapply Quotient_rec.
+    + intro f.
+      exact (class_of _ (fun x => g (f x))).
+    + intros f f' Hf.
+      strip_truncations.
+      apply qglue.
+      apply tr.
+      exact (a1_chain_postcomp X Y Z f f' g Hf).
+  - intros g g' Hg.
+    apply path_forall.
+    srapply Quotient_ind_hprop.
+    intro f.
+    simpl.
+    strip_truncations.
+    apply qglue.
+    apply tr.
+    exact (a1_chain_precomp X Y Z f g g' Hg).
+Defined.
+
+Definition A1Loc : PreCategory.
+Proof.
+  refine (@Build_PreCategory (CScheme F) A1LocHom
+            (fun X => class_of _ (fun x => x))
+            (fun X Y Z g f => a1_comp_class X Y Z g f)
+            _ _ _ _).
+  - intros s d d' d'' m1 m2 m3.
+    revert m1 m2 m3.
+    srapply Quotient_ind_hprop; intro f1.
+    srapply Quotient_ind_hprop; intro f2.
+    srapply Quotient_ind_hprop; intro f3.
+    reflexivity.
+  - intros a b f.
+    revert f.
+    srapply Quotient_ind_hprop; intro f.
+    reflexivity.
+  - intros a b f.
+    revert f.
+    srapply Quotient_ind_hprop; intro f.
+    reflexivity.
+Defined.
+
+Theorem point_iso_A1_in_localization
+  : @IsIsomorphism A1Loc (cpoint F) (cA1 F)
+      (class_of _ (fun _ => cf_zero F)).
+Proof.
+  exists (class_of _ (fun _ => tt)).
+  split.
+  - apply (ap (class_of _)).
+    apply path_forall; intro u.
+    destruct u.
+    reflexivity.
+  - apply qglue.
+    apply tr.
+    apply a1c_sym.
+    apply a1c_elem.
+    exists (fun p => cf_mul F (prod_pr1 p) (prod_pr2 p)).
+    split.
+    + intro x.
+      exact (cf_mul_one_r F x).
+    + intro x.
+      exact (cf_mul_zero_r F x).
+Defined.
+
+End A1Localization.
 
 (*******************************************************************************)
 (*  THE WEIGHT FUNCTIONS w_dim, w_sing, AND w_total                            *)
@@ -10079,6 +10399,76 @@ Record WeightFiltration (A : AbGroup) : Type := {
   wf_decreasing : forall n x, wf_sub (S n) x -> wf_sub n x
 }.
 
+(** The spectral sequence of a weight filtration: pages are the graded pieces, the first page is gr by construction, the differentials vanish by a theorem, the differential measure is derived as zero, and degeneration follows with every hypothesis discharged. *)
+
+Definition wf_incl (A : AbGroup) (W : WeightFiltration A) (n : nat)
+  : GroupHomomorphism (ab_subgroup_group (wf_sub A W (S n)))
+      (ab_subgroup_group (wf_sub A W n)).
+Proof.
+  refine (@Build_GroupHomomorphism
+            (ab_subgroup_group (wf_sub A W (S n)))
+            (ab_subgroup_group (wf_sub A W n))
+            (fun x => (x.1 ; wf_decreasing A W n x.1 x.2)) _).
+  intros x y.
+  apply path_sigma_hprop.
+  reflexivity.
+Defined.
+
+Definition wf_gr (A : AbGroup) (W : WeightFiltration A) (n : nat) : AbGroup
+  := ab_cokernel (wf_incl A W n).
+
+Definition wf_ss (A : AbGroup) (W : WeightFiltration A)
+  : WeightedSpectralSequence.
+Proof.
+  refine (Build_WeightedSpectralSequence
+            nat
+            (fun r n => wf_gr A W n)
+            (fun r n => n)
+            (fun r n => n)
+            (fun r n => grp_homo_const)
+            (fun r n => grp_homo_const)
+            (fun r n x => idpath)
+            _).
+  intros r n.
+  exact (ab_homology_vanishing_iso grp_homo_const grp_homo_const
+           (fun x => idpath) (fun y => idpath) (fun x => idpath)).
+Defined.
+
+Theorem wf_ss_E1_is_gr (A : AbGroup) (W : WeightFiltration A) (n : nat)
+  : wss_page (wf_ss A W) 1 n = wf_gr A W n.
+Proof.
+  reflexivity.
+Defined.
+
+Theorem wf_ss_differentials_zero (A : AbGroup) (W : WeightFiltration A)
+  : forall r n x, wss_d (wf_ss A W) r n x = mon_unit.
+Proof.
+  intros r n x.
+  reflexivity.
+Defined.
+
+Definition wf_ss_differential_measure : nat -> QPos
+  := fun _ => qpos_zero.
+
+Theorem wf_ss_degenerates (A : AbGroup) (W : WeightFiltration A)
+  : { R : nat & forall r, nat_lt R r -> forall n,
+      GroupIsomorphism (wss_page (wf_ss A W) (S r) n)
+        (wss_page (wf_ss A W) r n) }.
+Proof.
+  apply (wss_degeneration (wf_ss A W) wf_ss_differential_measure qpos_one tt).
+  - intro r.
+    unfold wf_ss_differential_measure.
+    refine (transport (fun q => qpos_lt qpos_zero q)
+             (nat_to_qpos_S_N_times_w_stage O r)^ _).
+    exact tt.
+  - intro r.
+    reflexivity.
+  - intros r Hr n x.
+    reflexivity.
+  - intros r Hr n x.
+    reflexivity.
+Defined.
+
 Theorem weight_filtration_stabilizes (A : AbGroup) (W : WeightFiltration A)
   (m : nat -> QPos) (C : QPos)
   (HC : nat_lt O (qpos_num C))
@@ -10100,6 +10490,54 @@ Proof.
   split.
   - exact (Hdetect n (HN n Hn) x).
   - exact (wf_decreasing A W n x).
+Defined.
+
+(** Abutment: past the degeneration page every stable page is identified with the graded pieces of the filtered limit object, and past the filtration stabilization stage those graded pieces vanish. *)
+
+Lemma ab_cokernel_of_image {A B : AbGroup} (f : GroupHomomorphism A B) (a : A)
+  : (grp_quotient_map : GroupHomomorphism B (ab_cokernel f)) (f a) = mon_unit.
+Proof.
+  apply qglue.
+  apply tr.
+  exists (inv a).
+  exact (grp_homo_inv f a @ (grp_unit_r (inv (f a)))^).
+Defined.
+
+Lemma wf_gr_trivial_of_stable (A : AbGroup) (W : WeightFiltration A) (n : nat)
+  (Hstab : forall x, wf_sub A W n x -> wf_sub A W (S n) x)
+  (y : wf_gr A W n)
+  : y = mon_unit.
+Proof.
+  revert y.
+  srapply grp_quotient_ind_hprop.
+  intro b.
+  refine (ap grp_quotient_map _ @ ab_cokernel_of_image (wf_incl A W n)
+            (b.1 ; Hstab b.1 b.2)).
+  apply path_sigma_hprop.
+  reflexivity.
+Defined.
+
+Theorem wf_ss_abutment (A : AbGroup) (W : WeightFiltration A)
+  (m : nat -> QPos) (C : QPos)
+  (HC : nat_lt O (qpos_num C))
+  (Hbound : forall n, qpos_lt (m n) (qpos_mult C (w_stage n)))
+  (Hint : IsIntegerValued m)
+  (Hdetect : forall n, qpos_is_zero (m n) ->
+      forall x, wf_sub A W n x -> wf_sub A W (S n) x)
+  : { N : nat &
+      forall r n, nat_lt N n ->
+        ((wss_page (wf_ss A W) r n = wf_gr A W n)
+         * (forall y : wf_gr A W n, y = mon_unit))%type }.
+Proof.
+  destruct (weight_filtration_stabilizes A W m C HC Hbound Hint Hdetect)
+    as [N HN].
+  exists N.
+  intros r n Hn.
+  split.
+  - reflexivity.
+  - apply wf_gr_trivial_of_stable.
+    intros x Hx.
+    exact (prod_pr1 (HN n Hn x) Hx).
 Defined.
 
 End WeightedSpectralSequences.
@@ -11005,6 +11443,109 @@ Proof.
   - exact (fam_fiber_conn_to_supported X d).
 Defined.
 
+(** *** Triangulated MotivicSH and weighted Levine degeneration: hom-abelian structure with biadditive composition over the genuine cofiber triangles, and the slice spectral sequence degenerating through the weight bound. *)
+
+Section TriangulatedMotivic.
+
+Import HoTT.Algebra.AbGroups.
+
+Context `{Funext}.
+
+Local Instance bool_sgop : SgOp Bool := xorb.
+Local Instance bool_monunit : MonUnit Bool := false.
+Local Instance bool_inverse : Inverse Bool := idmap.
+
+Definition abgroup_bool : AbGroup.
+Proof.
+  refine (@Build_AbGroup' Bool bool_monunit bool_inverse bool_sgop hset_bool
+            xorb_comm _ _ _).
+  - intros x y z.
+    exact (xorb_assoc x y z).
+  - intro x.
+    reflexivity.
+  - intro x.
+    exact (xorb_diag x).
+Defined.
+
+Definition MotivicSH_hom_ab (k : BaseField)
+  (E F : object (MotivicSH k)) : AbGroup
+  := match E with
+     | sh_zero => abgroup_trivial
+     | sh_el _ => match F with
+                  | sh_zero => abgroup_trivial
+                  | sh_el _ => abgroup_bool
+                  end
+     end.
+
+Theorem MotivicSH_hom_ab_carrier (k : BaseField)
+  (a b : GradedMotivicSpectrum k)
+  : group_type (MotivicSH_hom_ab k (sh_el a) (sh_el b))
+    = morphism (MotivicSH k) (sh_el a) (sh_el b).
+Proof.
+  reflexivity.
+Defined.
+
+Lemma andb_xorb_dist_l (x y z : Bool)
+  : andb (xorb x y) z = xorb (andb x z) (andb y z).
+Proof.
+  destruct x, y, z; reflexivity.
+Defined.
+
+Theorem MotivicSH_compose_biadditive (k : BaseField)
+  (a b c : GradedMotivicSpectrum k)
+  (f f' : morphism (MotivicSH k) (sh_el a) (sh_el b))
+  (g g' : morphism (MotivicSH k) (sh_el b) (sh_el c))
+  : ((((xorb g g' : morphism (MotivicSH k) (sh_el b) (sh_el c)) o f)%morphism
+      = xorb ((g o f)%morphism) ((g' o f)%morphism))
+     * ((g o (xorb f f' : morphism (MotivicSH k) (sh_el a) (sh_el b)))%morphism
+        = xorb ((g o f)%morphism) ((g o f')%morphism)))%type.
+Proof.
+  split.
+  - exact (andb_xorb_dist f g g').
+  - exact (andb_xorb_dist_l f f' g).
+Defined.
+
+Definition slice_wss (X : FamObj nat) : WeightedSpectralSequence.
+Proof.
+  refine (Build_WeightedSpectralSequence
+            nat
+            (fun r n => if X (S n) then abgroup_bool else abgroup_trivial)
+            (fun r n => n) (fun r n => n)
+            (fun r n => grp_homo_const)
+            (fun r n => grp_homo_const)
+            (fun r n x => idpath)
+            _).
+  intros r n.
+  exact (ab_homology_vanishing_iso grp_homo_const grp_homo_const
+           (fun x => idpath) (fun y => idpath) (fun x => idpath)).
+Defined.
+
+Theorem slice_wss_E1 (X : FamObj nat) (n : nat)
+  : wss_page (slice_wss X) 1 n
+    = (if X (S n) then abgroup_bool else abgroup_trivial).
+Proof.
+  reflexivity.
+Defined.
+
+Theorem weighted_levine_degeneration (X : FamObj nat) (d : nat)
+  (Hsupp : forall k, nat_lt d k -> X k = false)
+  : { R : nat & forall r, nat_lt R r -> forall n,
+      GroupIsomorphism (wss_page (slice_wss X) (S r) n)
+        (wss_page (slice_wss X) r n) }.
+Proof.
+  apply (wss_degeneration (slice_wss X) (fam_obstruction X)
+           (nat_to_qpos (S d)) tt).
+  - exact (fam_obstruction_bounded X d Hsupp).
+  - intro n.
+    reflexivity.
+  - intros r Hr i x.
+    reflexivity.
+  - intros r Hr i x.
+    reflexivity.
+Defined.
+
+End TriangulatedMotivic.
+
 (*******************************************************************************)
 (*  THE FRONTIER: A DERIVED WEIGHT BOUND FOR A CONCRETE BLOW-UP                *)
 (*******************************************************************************)
@@ -11063,15 +11604,51 @@ Defined.
 
 (** *** Blow-up models: the geometry supplies the constant *)
 
+(** The obstruction family of a blow-up model is derived, not stored: occupancy at each level up to the exceptional dimension is certified by an actual doubled fiber of the blowdown, and support bounds are theorems. *)
+
 Record BlowupModel (F : CField) : Type := {
   bm_base : CScheme F;
   bm_total : CScheme F;
   bm_blowdown : CMor bm_total bm_base;
   bm_exc_dim : nat;
   bm_exc_below : nat_lt bm_exc_dim (cs_dim F bm_base);
-  bm_levels : FamObj nat;
-  bm_levels_supported : forall k, nat_lt bm_exc_dim k -> bm_levels k = false
+  bm_fiber_witness : forall k, nat_le k bm_exc_dim ->
+    { t1 : cs_carrier F bm_total & { t2 : cs_carrier F bm_total &
+      ((bm_blowdown t1 = bm_blowdown t2) * ((t1 = t2) -> Empty))%type }}
 }.
+
+Definition bm_levels (F : CField) (B : BlowupModel F) : FamObj nat
+  := fun k => nat_leb k (bm_exc_dim F B).
+
+Lemma nat_leb_gt_false (d k : nat) (H : nat_lt d k) : nat_leb k d = false.
+Proof.
+  destruct (bool_dec_eq (nat_leb k d)) as [Hb | Hb].
+  - exact (Empty_rec _
+             (nat_le_lt_contradiction k d (nat_leb_true_le k d Hb) H)).
+  - exact Hb.
+Defined.
+
+Definition bm_levels_supported (F : CField) (B : BlowupModel F)
+  : forall k, nat_lt (bm_exc_dim F B) k -> bm_levels F B k = false
+  := fun k Hk => nat_leb_gt_false (bm_exc_dim F B) k Hk.
+
+Theorem bm_levels_below_base_dim (F : CField) (B : BlowupModel F)
+  : forall k, nat_le (cs_dim F (bm_base F B)) k -> bm_levels F B k = false.
+Proof.
+  intros k Hk.
+  apply (bm_levels_supported F B).
+  exact (nat_lt_of_lt_of_le (bm_exc_dim F B) (cs_dim F (bm_base F B)) k
+           (bm_exc_below F B) Hk).
+Defined.
+
+Theorem bm_levels_occupied_fiber (F : CField) (B : BlowupModel F)
+  (k : nat) (Hk : bm_levels F B k = true)
+  : { t1 : cs_carrier F (bm_total F B) & { t2 : cs_carrier F (bm_total F B) &
+      ((bm_blowdown F B t1 = bm_blowdown F B t2)
+       * ((t1 = t2) -> Empty))%type }}.
+Proof.
+  exact (bm_fiber_witness F B k (nat_leb_true_le k (bm_exc_dim F B) Hk)).
+Defined.
 
 Definition bm_weight_constant {F : CField} (B : BlowupModel F) : nat
   := nat_mul (S (bm_exc_dim F B))
@@ -11170,14 +11747,20 @@ Proof.
   exact (false_ne_true (ap (fun w => prod_pr1 ((prod_pr2 w.1).1)) q)^).
 Defined.
 
+Lemma exc_points_distinct : exc_pt10 = exc_pt01 -> Empty.
+Proof.
+  intro q.
+  exact (false_ne_true (ap (fun w => prod_pr1 ((prod_pr2 w.1).1)) q)^).
+Defined.
+
 Definition blowup_model_A2_F2 : BlowupModel F2
   := {| bm_base := cA2_F2;
         bm_total := blowup_A2_F2;
         bm_blowdown := blowdown;
         bm_exc_dim := 1;
         bm_exc_below := tt;
-        bm_levels := full_below 1;
-        bm_levels_supported := full_below_supported 1 |}.
+        bm_fiber_witness := fun k _ =>
+          (exc_pt10 ; (exc_pt01 ; (idpath , exc_points_distinct))) |}.
 
 (** The derived constant computes to six from exceptional dimension one, ambient dimension two, and singularity zero. *)
 
@@ -11288,18 +11871,6 @@ Proof.
 Defined.
 
 (** Boolean reflection of the strict order. *)
-
-Lemma nat_leb_complete (k d : nat) : nat_le k d -> nat_leb k d = true.
-Proof.
-  revert d.
-  induction k.
-  - intros d _.
-    reflexivity.
-  - intros d Hle.
-    destruct d.
-    + destruct Hle.
-    + exact (IHk d Hle).
-Defined.
 
 Definition nat_ltb (a b : nat) : Bool := nat_leb (S a) b.
 
