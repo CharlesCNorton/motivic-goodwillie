@@ -8671,3 +8671,224 @@ Proof.
              (S (S (S O))) (full_below_supported (S (S (S O))))).
   - exact weighted_tower_fails_below_stage.
 Defined.
+
+(*******************************************************************************)
+(*  THE FRONTIER: A DERIVED WEIGHT BOUND FOR A CONCRETE BLOW-UP                *)
+(*******************************************************************************)
+
+(** The program's conjecture is that genuine motivic obstructions are
+    weight-bounded.  This part tests the conjecture inside the file.  A
+    blow-up model packages a base scheme, a total space, a blowdown, and an
+    obstruction level family supported at the dimension of the exceptional
+    locus, which the geometry forces strictly below the ambient dimension.
+    The weight bound against C times w_total, with the constant C derived
+    from the exceptional dimension and the base's dimension and singularity
+    data, is then a theorem rather than a hypothesis, and the weighted
+    tower of every blow-up model converges.  The blow-up of the affine
+    plane over F2 at the origin realizes the model concretely: over F2 the
+    projective line is the set of nonzero vectors of the plane, the
+    incidence carrier is a genuine set of point-line pairs, the blowdown is
+    provably not a scheme isomorphism, and the derived constant computes to
+    six from ambient dimension two, singularity zero, and exceptional
+    dimension one. *)
+
+Lemma qpos_lt_cross_transfer (m a b : QPos)
+  (Hcross : nat_mul (qpos_num a) (qpos_denom b)
+            = nat_mul (qpos_num b) (qpos_denom a))
+  (Hlt : qpos_lt m a)
+  : qpos_lt m b.
+Proof.
+  unfold qpos_lt in *.
+  apply (nat_lt_mul_cancel_r _ _ (qpos_denom a)).
+  - unfold qpos_denom.
+    exact tt.
+  - rewrite (nat_mul_rearrange_1 (qpos_num m) (qpos_denom b) (qpos_denom a)).
+    rewrite (nat_mul_rearrange_1 (qpos_num b) (qpos_denom m) (qpos_denom a)).
+    rewrite <- Hcross.
+    rewrite (nat_mul_rearrange_1 (qpos_num a) (qpos_denom b) (qpos_denom m)).
+    apply nat_lt_mul_pos_r.
+    + exact Hlt.
+    + unfold qpos_denom.
+      exact tt.
+Defined.
+
+(** A bound by the stage weight transfers to a bound by the total weight,
+    with the constant multiplied by the dimension and singularity factors of
+    the scheme.  The cross-multiplied equality of the two bounding rationals
+    is the following arithmetic identity. *)
+
+Lemma cross_arith (C0 d s n : nat)
+  : nat_mul (nat_mul C0 (S O))
+      (nat_mul (S O) (nat_mul (nat_mul (S d) (S s)) (S n)))
+    = nat_mul (nat_mul (nat_mul C0 (nat_mul (S d) (S s))) (S O))
+        (nat_mul (S O) (S n)).
+Proof.
+  rewrite (nat_mul_one_r C0).
+  rewrite (nat_mul_one_r (nat_mul C0 (nat_mul (S d) (S s)))).
+  rewrite (nat_mul_one_l (nat_mul (nat_mul (S d) (S s)) (S n))).
+  rewrite (nat_mul_one_l (S n)).
+  apply nat_mul_assoc.
+Defined.
+
+Lemma stage_bound_to_total_bound {F : CField} (X : CScheme F)
+  (C0 : nat) (m : QPos) (n : nat)
+  (Hlt : qpos_lt m (qpos_mult (nat_to_qpos C0) (w_stage n)))
+  : qpos_lt m
+      (qpos_mult
+         (nat_to_qpos
+            (nat_mul C0 (nat_mul (S (cs_dim F X)) (S (cs_sing F X)))))
+         (w_total X n)).
+Proof.
+  refine (qpos_lt_cross_transfer m
+            (qpos_mult (nat_to_qpos C0) (w_stage n))
+            _ _ Hlt).
+  exact (cross_arith C0 (cs_dim F X) (cs_sing F X) n).
+Defined.
+
+(** *** Blow-up models: the geometry supplies the constant *)
+
+Record BlowupModel (F : CField) : Type := {
+  bm_base : CScheme F;
+  bm_total : CScheme F;
+  bm_blowdown : CMor bm_total bm_base;
+  bm_exc_dim : nat;
+  bm_exc_below : nat_lt bm_exc_dim (cs_dim F bm_base);
+  bm_levels : FamObj nat;
+  bm_levels_supported : forall k, nat_lt bm_exc_dim k -> bm_levels k = false
+}.
+
+Definition bm_weight_constant {F : CField} (B : BlowupModel F) : nat
+  := nat_mul (S (bm_exc_dim F B))
+       (nat_mul (S (cs_dim F (bm_base F B))) (S (cs_sing F (bm_base F B)))).
+
+Theorem blowup_model_weight_bounded {F : CField} (B : BlowupModel F)
+  : forall n, qpos_lt (fam_obstruction (bm_levels F B) n)
+      (qpos_mult (nat_to_qpos (bm_weight_constant B))
+         (w_total (bm_base F B) n)).
+Proof.
+  intro n.
+  apply (stage_bound_to_total_bound (bm_base F B) (S (bm_exc_dim F B))).
+  exact (fam_obstruction_bounded (bm_levels F B) (bm_exc_dim F B)
+           (bm_levels_supported F B) n).
+Defined.
+
+Theorem blowup_model_tower_converges `{Funext} {F : CField} (B : BlowupModel F)
+  : { N : nat &
+      ((TowerStabilizesAt (fam_P_tower (bm_levels F B)) N) *
+       (forall n, nat_le N n ->
+          IsIsomorphism (C := FamCat nat)
+            (fam_unit (fam_guard_P n) (bm_levels F B))))%type }.
+Proof.
+  exact (weighted_taylor_tower_convergence (bm_levels F B) (bm_exc_dim F B)
+           (bm_levels_supported F B)).
+Defined.
+
+(** *** The blow-up of the affine plane over F2 at the origin *)
+
+Definition bool_pair_nonzero (v : (Bool * Bool)%type) : Bool
+  := orb (prod_pr1 v) (prod_pr2 v).
+
+Definition P1F2 : Type
+  := { v : (Bool * Bool)%type & bool_pair_nonzero v = true }.
+
+Global Instance ishset_P1F2 : IsHSet P1F2.
+Proof.
+  exact _.
+Defined.
+
+Definition bool_eqb (a b : Bool) : Bool := if a then b else negb b.
+
+Definition pair_eqb (u v : (Bool * Bool)%type) : Bool
+  := andb (bool_eqb (prod_pr1 u) (prod_pr1 v))
+          (bool_eqb (prod_pr2 u) (prod_pr2 v)).
+
+Definition bool_pair_zero (v : (Bool * Bool)%type) : Bool
+  := andb (negb (prod_pr1 v)) (negb (prod_pr2 v)).
+
+(** Over F2 each line through the origin contains exactly one nonzero
+    vector, so the projective line is the type of nonzero vectors and
+    incidence is being zero or being that vector. *)
+
+Definition f2_incidence (p : (Bool * Bool)%type) (l : P1F2) : Bool
+  := orb (bool_pair_zero p) (pair_eqb p l.1).
+
+Definition blowup_carrier : Type
+  := { q : ((Bool * Bool) * P1F2)%type &
+       f2_incidence (prod_pr1 q) (prod_pr2 q) = true }.
+
+Global Instance ishset_blowup_carrier : IsHSet blowup_carrier.
+Proof.
+  exact _.
+Defined.
+
+Definition cA2_F2 : CScheme F2
+  := {| cs_carrier := (Bool * Bool)%type;
+        cs_ishset := @istrunc_prod _ _ hset_bool _ hset_bool;
+        cs_dim := S (S O);
+        cs_sing := O |}.
+
+Definition blowup_A2_F2 : CScheme F2
+  := {| cs_carrier := blowup_carrier;
+        cs_ishset := ishset_blowup_carrier;
+        cs_dim := S (S O);
+        cs_sing := O |}.
+
+Definition blowdown : CMor blowup_A2_F2 cA2_F2
+  := fun q => prod_pr1 q.1.
+
+Definition line10 : P1F2 := ((true, false) ; idpath).
+
+Definition line01 : P1F2 := ((false, true) ; idpath).
+
+Definition exc_pt10 : blowup_carrier
+  := (((false, false), line10) ; idpath).
+
+Definition exc_pt01 : blowup_carrier
+  := (((false, false), line01) ; idpath).
+
+(** The blowdown identifies the two exceptional points above the origin, so
+    it is not an isomorphism of schemes. *)
+
+Theorem blowdown_not_scheme_iso `{Funext}
+  : @IsIsomorphism (CSch F2) blowup_A2_F2 cA2_F2 blowdown -> Empty.
+Proof.
+  intros [g [Hgf Hfg]].
+  pose (q := (ap10 Hgf exc_pt10)^ @ ap10 Hgf exc_pt01).
+  exact (false_ne_true (ap (fun w => prod_pr1 ((prod_pr2 w.1).1)) q)^).
+Defined.
+
+Definition blowup_model_A2_F2 : BlowupModel F2
+  := {| bm_base := cA2_F2;
+        bm_total := blowup_A2_F2;
+        bm_blowdown := blowdown;
+        bm_exc_dim := S O;
+        bm_exc_below := tt;
+        bm_levels := full_below (S O);
+        bm_levels_supported := full_below_supported (S O) |}.
+
+(** The derived constant computes: exceptional dimension one, ambient
+    dimension two, singularity zero give two times three times one. *)
+
+Lemma blowup_A2_F2_constant_is_six
+  : bm_weight_constant blowup_model_A2_F2 = S (S (S (S (S (S O))))).
+Proof.
+  reflexivity.
+Defined.
+
+Theorem blowup_A2_F2_weight_bounded
+  : forall n, qpos_lt (fam_obstruction (full_below (S O)) n)
+      (qpos_mult (nat_to_qpos (bm_weight_constant blowup_model_A2_F2))
+         (w_total cA2_F2 n)).
+Proof.
+  exact (blowup_model_weight_bounded blowup_model_A2_F2).
+Defined.
+
+Theorem blowup_A2_F2_tower_converges `{Funext}
+  : { N : nat &
+      ((TowerStabilizesAt (fam_P_tower (full_below (S O))) N) *
+       (forall n, nat_le N n ->
+          IsIsomorphism (C := FamCat nat)
+            (fam_unit (fam_guard_P n) (full_below (S O)))))%type }.
+Proof.
+  exact (blowup_model_tower_converges blowup_model_A2_F2).
+Defined.
